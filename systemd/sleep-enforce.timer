@@ -1,5 +1,5 @@
 [Unit]
-Description=Bedtime enforce timer (10 min after each suspend ends; repeats while in lockdown window)
+Description=Bedtime enforce timer (every 10 min; the service is window-gated and a no-op outside 21:00-06:00)
 
 [Timer]
 # Monotonic timer pair, not OnCalendar. The wake-loop semantics we want

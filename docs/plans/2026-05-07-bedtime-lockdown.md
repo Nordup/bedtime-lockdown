@@ -1,5 +1,7 @@
 # Bedtime Lockdown Implementation Plan
 
+> **Archived implementation plan.** This document is the step-by-step plan that was used to build the system. Some specifics (schedule values, wake-loop semantics, unit file names) have evolved since. For the as-built state, read the project README. This file is kept as a record of how the project came together.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a Linux service that hard-suspends the machine at 9:30pm every night, keeps it suspended (via 3-min wake polling) until 6:00am, and provides a deliberately high-friction override CLI.

@@ -1,7 +1,9 @@
 # Bedtime Lockdown — Design
 
+> **Archived design doc.** This document describes the original design as written before implementation. The system has since shipped and some specifics have evolved (schedule, wake-loop semantics). For the as-built behavior, read the project README. This file is kept as a record of the design rationale.
+
 **Date:** 2026-05-07
-**Status:** Draft, pending user approval
+**Status:** Implemented, with subsequent schedule revisions (see git log)
 **Target machine:** Manjaro Linux, GNOME on Wayland (single-user desktop)
 
 ## Problem

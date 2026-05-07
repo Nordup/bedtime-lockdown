@@ -1,11 +1,15 @@
 # Pure logic helpers for the bedtime-lockdown scripts.
 # Sourced by bin/sleep-* and by tests.
 #
-# CONFIG: if you change LOCKDOWN_START_HHMM or LOCKDOWN_END_HHMM below,
-# also update the OnCalendar lines in:
-#   systemd/sleep-warn-15.timer  (15 min before lockdown)
-#   systemd/sleep-warn-5.timer   ( 5 min before lockdown)
-# These are coupled by hand because systemd timers can't read shell vars.
+# CONFIG NOTE: LOCKDOWN_START_HHMM is the bedtime — when the script
+# locks and suspends. The two warning systemd timers must be kept in
+# lockstep with it by hand (systemd timers can't read shell variables):
+#
+#   systemd/sleep-warn-15.timer  -> OnCalendar = LOCKDOWN_START - 15 min
+#   systemd/sleep-warn-5.timer   -> OnCalendar = LOCKDOWN_START -  5 min
+#
+# LOCKDOWN_END_HHMM only affects this script's window check; no systemd
+# unit file refers to it.
 
 LOCKDOWN_START_HHMM=2100            # bedtime: lock + suspend at 21:00
 LOCKDOWN_END_HHMM=600               # wake-up: window ends at 06:00
