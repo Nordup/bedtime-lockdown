@@ -124,6 +124,35 @@ bats tests/
 
 28 unit tests covering the pure logic helpers. Edge cases: malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log (last entry wins), corrupted timestamp fails closed.
 
+## Related projects
+
+If this isn't quite what you want, here's the landscape — all checked at the time of writing.
+
+**Direct conceptual match, different OS:** Cold Turkey's *Frozen Turkey* mode (Windows/Mac) schedules a computer-level lockout with bypass-prevention. This project is consciously a small Linux clone of that idea. If you're on Windows or macOS and don't need anything custom, just buy Cold Turkey.
+
+**Same mechanism (schedule a system action), no addiction-aware design:**
+
+- [jhasse/sleeptimer](https://github.com/jhasse/sleeptimer) — generic shutdown timer for Linux/Windows.
+- [Shingyx/schedule-shutdown](https://github.com/Shingyx/schedule-shutdown) — cross-platform scheduled shutdowns.
+- [lukaslangrock/ShutdownTimerClassic](https://github.com/lukaslangrock/ShutdownTimerClassic) — Windows-only.
+- Autopoweroff, qshutdown — Linux scheduled-shutdown utilities.
+
+These are general-purpose tools — no friction override, no wake-loop, no concept of bedtime as a self-discipline product. If you want "shutdown at X" with no behavioral mechanic, one of these is simpler than this project.
+
+**Same motivation (Linux anti-procrastination), different mechanism (blocks apps/sites instead of suspending):**
+
+- [Chomper](https://github.com/parkerlreed/chomper) — Linux internet blocker, built specifically because Cold Turkey doesn't run on Linux. Blocks domains via iptables.
+- [zengargoyle/selfcontrol](https://github.com/zengargoyle/selfcontrol) — port of Mac SelfControl. Old (GTK2), "most likely broken" per its own readme.
+- LeechBlock, Pluckeye, DigitalZen — content blockers, mostly browser-based or commercial.
+
+If you want website/app blocking rather than full machine suspend, one of these will fit better.
+
+**Opposite direction, will confuse a search:**
+
+- [bulletmark/sleep-inhibitor](https://github.com/bulletmark/sleep-inhibitor), [mrmekon/circadian](https://github.com/mrmekon/circadian) — these *prevent* suspend or suspend-on-idle. Useful tools, opposite trigger condition.
+
+The specific combination of *Linux + scheduled hard suspend + friction override + wake-loop* doesn't seem to exist anywhere else, which is why this repo exists.
+
 ## Origin
 
 Built in a single late-night session because I couldn't stop working past 9pm and reminders weren't cutting it. Design and plan docs are preserved in `docs/specs/` and `docs/plans/` for anyone curious about how it came together — they're frozen at the original 21:30 schedule, so trust this README and the code for current behavior.
