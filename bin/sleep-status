@@ -6,12 +6,13 @@ SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
 
 now=$(date +%s)
 hhmm=$(date +%H%M)
+window_label="$(format_hhmm_as_clock "$LOCKDOWN_START_HHMM") - $(format_hhmm_as_clock "$LOCKDOWN_END_HHMM")"
 
 echo "Now:           $(date)"
 if is_in_lockdown_window "$hhmm"; then
-    echo "Lockdown:      ACTIVE (window 21:30 - 06:00)"
+    echo "Lockdown:      ACTIVE (window $window_label)"
 else
-    echo "Lockdown:      inactive"
+    echo "Lockdown:      inactive (window $window_label)"
 fi
 
 if override_active "$now"; then
@@ -23,9 +24,7 @@ fi
 
 remaining=$(cooldown_remaining "$now")
 if (( remaining > 0 )); then
-    h=$((remaining / 3600))
-    m=$(( (remaining % 3600) / 60 ))
-    printf 'Cooldown:      %02d:%02d remaining\n' "$h" "$m"
+    printf 'Cooldown:      %s remaining\n' "$(format_hm "$remaining")"
 else
     echo "Cooldown:      ready (no override on cooldown)"
 fi
@@ -39,8 +38,16 @@ echo "Overrides today: $count"
 
 echo
 echo "Last 5 enforce events:"
-[[ -s "$SLEEP_HOME/enforce.log" ]] && tail -n 5 "$SLEEP_HOME/enforce.log" || echo "  (none)"
+if [[ -s "$SLEEP_HOME/enforce.log" ]]; then
+    tail -n 5 "$SLEEP_HOME/enforce.log"
+else
+    echo "  (none)"
+fi
 
 echo
 echo "Last 5 overrides:"
-[[ -s "$SLEEP_HOME/overrides.log" ]] && tail -n 5 "$SLEEP_HOME/overrides.log" || echo "  (none)"
+if [[ -s "$SLEEP_HOME/overrides.log" ]]; then
+    tail -n 5 "$SLEEP_HOME/overrides.log"
+else
+    echo "  (none)"
+fi

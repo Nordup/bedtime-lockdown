@@ -26,11 +26,14 @@ Run `sleep-override` from any terminal. Answer three questions. Get one hour. Li
 ./install.sh
 ```
 
-Requires: `bats` (build-time, for running tests), and a systemd-based Linux desktop with `notify-send` and a graphical session manager that responds to `loginctl lock-session`. Tested on Manjaro + GNOME on Wayland.
+Requires a systemd-based Linux desktop with `notify-send` and a graphical session manager that responds to `loginctl lock-session`. Tested on Manjaro + GNOME on Wayland.
 
 ## Test
 
+`bats` (Bash Automated Testing System) runs the unit test suite. It's only needed for development, not for using the system day-to-day.
+
 ```bash
+sudo pacman -S bats   # one-time install on Manjaro
 bats tests/
 ```
 
