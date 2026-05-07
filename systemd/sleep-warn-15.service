@@ -1,0 +1,6 @@
+[Unit]
+Description=Bedtime warning (15 min)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/sleep-warn "Bedtime in 15 minutes. Save your work."

@@ -3,11 +3,11 @@
 #
 # CONFIG: if you change LOCKDOWN_START_HHMM or LOCKDOWN_END_HHMM below,
 # also update the OnCalendar lines in:
-#   systemd/sleep-warn-2100.timer  (warning 30 min before lockdown)
-#   systemd/sleep-warn-2125.timer  (warning  5 min before lockdown)
+#   systemd/sleep-warn-15.timer  (15 min before lockdown)
+#   systemd/sleep-warn-5.timer   ( 5 min before lockdown)
 # These are coupled by hand because systemd timers can't read shell vars.
 
-LOCKDOWN_START_HHMM=2130            # bedtime: lock + suspend at 21:30
+LOCKDOWN_START_HHMM=2100            # bedtime: lock + suspend at 21:00
 LOCKDOWN_END_HHMM=600               # wake-up: window ends at 06:00
 OVERRIDE_DURATION_SEC=3600          # 1 hour reprieve per override
 COOLDOWN_SEC=$((12 * 3600))         # one override per 12 hours

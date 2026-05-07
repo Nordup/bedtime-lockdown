@@ -6,15 +6,15 @@ LIB_DIR="$HOME/.local/share/sleep"
 UNIT_DIR="$HOME/.config/systemd/user"
 
 systemctl --user disable --now \
-    sleep-warn-2100.timer \
-    sleep-warn-2125.timer \
+    sleep-warn-15.timer \
+    sleep-warn-5.timer \
     sleep-enforce.timer 2>/dev/null || true
 
 rm -f \
-    "$UNIT_DIR/sleep-warn-2100.service" \
-    "$UNIT_DIR/sleep-warn-2100.timer" \
-    "$UNIT_DIR/sleep-warn-2125.service" \
-    "$UNIT_DIR/sleep-warn-2125.timer" \
+    "$UNIT_DIR/sleep-warn-15.service" \
+    "$UNIT_DIR/sleep-warn-15.timer" \
+    "$UNIT_DIR/sleep-warn-5.service" \
+    "$UNIT_DIR/sleep-warn-5.timer" \
     "$UNIT_DIR/sleep-enforce.service" \
     "$UNIT_DIR/sleep-enforce.timer"
 

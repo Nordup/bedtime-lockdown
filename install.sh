@@ -16,17 +16,17 @@ install -m 755 "$REPO_ROOT/bin/sleep-status"    "$BIN_DIR/sleep-status"
 
 install -m 644 "$REPO_ROOT/lib/sleep-common.sh" "$LIB_DIR/sleep-common.sh"
 
-install -m 644 "$REPO_ROOT/systemd/sleep-warn-2100.service"  "$UNIT_DIR/sleep-warn-2100.service"
-install -m 644 "$REPO_ROOT/systemd/sleep-warn-2100.timer"    "$UNIT_DIR/sleep-warn-2100.timer"
-install -m 644 "$REPO_ROOT/systemd/sleep-warn-2125.service"  "$UNIT_DIR/sleep-warn-2125.service"
-install -m 644 "$REPO_ROOT/systemd/sleep-warn-2125.timer"    "$UNIT_DIR/sleep-warn-2125.timer"
-install -m 644 "$REPO_ROOT/systemd/sleep-enforce.service"    "$UNIT_DIR/sleep-enforce.service"
-install -m 644 "$REPO_ROOT/systemd/sleep-enforce.timer"      "$UNIT_DIR/sleep-enforce.timer"
+install -m 644 "$REPO_ROOT/systemd/sleep-warn-15.service"   "$UNIT_DIR/sleep-warn-15.service"
+install -m 644 "$REPO_ROOT/systemd/sleep-warn-15.timer"     "$UNIT_DIR/sleep-warn-15.timer"
+install -m 644 "$REPO_ROOT/systemd/sleep-warn-5.service"    "$UNIT_DIR/sleep-warn-5.service"
+install -m 644 "$REPO_ROOT/systemd/sleep-warn-5.timer"      "$UNIT_DIR/sleep-warn-5.timer"
+install -m 644 "$REPO_ROOT/systemd/sleep-enforce.service"   "$UNIT_DIR/sleep-enforce.service"
+install -m 644 "$REPO_ROOT/systemd/sleep-enforce.timer"     "$UNIT_DIR/sleep-enforce.timer"
 
 systemctl --user daemon-reload
 systemctl --user enable --now \
-    sleep-warn-2100.timer \
-    sleep-warn-2125.timer \
+    sleep-warn-15.timer \
+    sleep-warn-5.timer \
     sleep-enforce.timer
 
 echo

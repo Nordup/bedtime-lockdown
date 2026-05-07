@@ -1,0 +1,10 @@
+[Unit]
+Description=Bedtime warning (15 min) timer
+
+[Timer]
+OnCalendar=*-*-* 20:45:00
+Persistent=false
+Unit=sleep-warn-15.service
+
+[Install]
+WantedBy=timers.target

@@ -1,6 +1,6 @@
 # Bedtime Lockdown
 
-Linux service that hard-suspends my machine at 9:30pm every night and keeps it suspended until 6:00am, with a deliberately high-friction override path for genuine emergencies.
+Linux service that hard-suspends my machine at 9:00pm every night and keeps it suspended until 6:00am, with a deliberately high-friction override path for genuine emergencies.
 
 ## Why
 
@@ -10,10 +10,10 @@ Reminders don't work for late-night work compulsion. This is the OS-level hard w
 
 | Time      | Event                                                |
 |-----------|------------------------------------------------------|
-| 9:00pm    | Notification: "Bedtime in 30 minutes."               |
-| 9:25pm    | Notification: "Bedtime in 5 minutes."                |
-| 9:30pm    | Lock screen + suspend.                               |
-| 9:30pm – 6:00am | If machine wakes, suspend again ~3 minutes later. |
+| 8:45pm    | Notification: "Bedtime in 15 minutes."               |
+| 8:55pm    | Notification: "Bedtime in 5 minutes."                |
+| 9:00pm    | Lock screen + suspend.                               |
+| 9:00pm – 6:00am | If machine wakes, suspend again ~3 minutes later. |
 | 6:00am    | Window ends.                                         |
 
 ## Override
