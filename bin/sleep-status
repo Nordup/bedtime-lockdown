@@ -30,6 +30,13 @@ else
     echo "Cooldown:      ready (no override on cooldown)"
 fi
 
+today=$(date +%Y-%m-%d)
+count=0
+if [[ -s "$SLEEP_HOME/overrides.log" ]]; then
+    count=$(grep -c "^$today" "$SLEEP_HOME/overrides.log" || true)
+fi
+echo "Overrides today: $count"
+
 echo
 echo "Last 5 enforce events:"
 [[ -s "$SLEEP_HOME/enforce.log" ]] && tail -n 5 "$SLEEP_HOME/enforce.log" || echo "  (none)"

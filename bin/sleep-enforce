@@ -19,7 +19,11 @@ fi
 
 echo "$(date -Iseconds) suspending" >> "$SLEEP_HOME/enforce.log"
 
-# Best-effort lock; ignore failures (e.g. no graphical session active yet).
-loginctl lock-session 2>/dev/null || true
+# Best-effort lock. Try the explicit session first (more robust when the
+# user unit's env is sparse), then fall back to the implicit form. If both
+# fail (e.g. no graphical session yet), continue to suspend anyway.
+loginctl lock-session "${XDG_SESSION_ID:-}" 2>/dev/null \
+    || loginctl lock-session 2>/dev/null \
+    || true
 
 systemctl suspend

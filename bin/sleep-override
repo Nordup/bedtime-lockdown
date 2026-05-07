@@ -6,6 +6,11 @@ SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
 
 mkdir -p "$SLEEP_HOME"
 
+# Single-writer lock: prevents two concurrent invocations from both passing
+# the cooldown check and double-appending to overrides.log.
+exec 9>"$SLEEP_HOME/override.lock"
+flock -n 9 || { echo "Another sleep-override is running. Try again." >&2; exit 1; }
+
 now=$(date +%s)
 remaining=$(cooldown_remaining "$now")
 
