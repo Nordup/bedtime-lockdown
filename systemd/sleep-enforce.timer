@@ -1,12 +1,20 @@
 [Unit]
-Description=Bedtime enforce timer (every 10 minutes; suspends if in lockdown window)
+Description=Bedtime enforce timer (10 min after each suspend ends; repeats while in lockdown window)
 
 [Timer]
-# Fire every 10 minutes, all day. The script is a no-op outside the
-# 21:00..06:00 lockdown window, so the simpler always-on schedule is
-# fine and easier to read than a windowed OnCalendar expression.
-OnCalendar=*-*-* *:0/10
-Persistent=false
+# Monotonic timer pair, not OnCalendar. The wake-loop semantics we want
+# are "10 minutes after the user wakes the machine" — measured from the
+# moment of resume, not from an absolute clock mark. Because the script
+# blocks on `systemctl suspend` until the kernel resumes, the service
+# stays active for the entire suspend duration and only deactivates on
+# resume. OnUnitInactiveSec=10min therefore schedules the next fire for
+# exactly resume_time + 10min.
+#
+# OnActiveSec=10min gives the first fire 10 min after the timer is
+# enabled (initial bootstrap). After that, OnUnitInactiveSec drives the
+# cadence: 10 min between every service end and the next fire.
+OnActiveSec=10min
+OnUnitInactiveSec=10min
 Unit=sleep-enforce.service
 
 [Install]
