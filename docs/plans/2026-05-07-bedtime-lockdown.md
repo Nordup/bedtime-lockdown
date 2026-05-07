@@ -650,7 +650,7 @@ Description=Bedtime enforce timer (every 3 minutes during lockdown window)
 # Fire every 3 minutes, all day. The script is a no-op outside the
 # 21:30..06:00 lockdown window, so the simpler always-on schedule is
 # fine and easier to read than a windowed OnCalendar expression.
-OnCalendar=*-*-* *:*/3
+OnCalendar=*-*-* *:0/3
 Persistent=false
 Unit=sleep-enforce.service
 

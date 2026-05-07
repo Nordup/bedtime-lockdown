@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SLEEP_LIB="${SLEEP_LIB:-$HOME/.local/share/sleep}"
+SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
+. "$SLEEP_LIB/sleep-common.sh"
+
+mkdir -p "$SLEEP_HOME"
+
+now=$(date +%s)
+hhmm=$(date +%H%M)
+
+if ! is_in_lockdown_window "$hhmm"; then
+    exit 0
+fi
+
+if override_active "$now"; then
+    exit 0
+fi
+
+echo "$(date -Iseconds) suspending" >> "$SLEEP_HOME/enforce.log"
+
+# Best-effort lock; ignore failures (e.g. no graphical session active yet).
+loginctl lock-session 2>/dev/null || true
+
+systemctl suspend

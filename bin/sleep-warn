@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec notify-send --urgency=critical "Bedtime Lockdown" "${1:-Bedtime warning}"

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SLEEP_LIB="${SLEEP_LIB:-$HOME/.local/share/sleep}"
+SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
+. "$SLEEP_LIB/sleep-common.sh"
+
+mkdir -p "$SLEEP_HOME"
+
+now=$(date +%s)
+remaining=$(cooldown_remaining "$now")
+
+if (( remaining > 0 )); then
+    h=$((remaining / 3600))
+    m=$(( (remaining % 3600) / 60 ))
+    printf 'Override already used. Cooldown remaining: %02d:%02d\n' "$h" "$m" >&2
+    exit 1
+fi
+
+prompt() {
+    local question=$1 answer
+    while true; do
+        read -r -p "$question " answer
+        # reject empty / whitespace-only
+        if [[ -n "${answer//[[:space:]]/}" ]]; then
+            echo "$answer"
+            return 0
+        fi
+        echo "  (answer cannot be empty)" >&2
+    done
+}
+
+a1=$(prompt "What are you doing right now?")
+a2=$(prompt "Why tonight specifically, and not tomorrow morning?")
+a3=$(prompt "What time will you actually stop?")
+
+ts=$(date -Iseconds)
+printf '%s\t%s\t%s\t%s\n' "$ts" "$a1" "$a2" "$a3" >> "$SLEEP_HOME/overrides.log"
+echo $((now + 3600)) > "$SLEEP_HOME/override-until"
+
+end=$(date -d "@$((now + 3600))" "+%H:%M")
+echo "Override granted until $end. Sleep well."

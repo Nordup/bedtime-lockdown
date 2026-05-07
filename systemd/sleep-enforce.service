@@ -1,0 +1,6 @@
+[Unit]
+Description=Bedtime enforce (lock + suspend if in window)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/sleep-enforce
