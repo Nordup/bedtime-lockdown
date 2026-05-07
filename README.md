@@ -13,7 +13,7 @@ Reminders don't work for late-night work compulsion. This is the OS-level hard w
 | 8:45pm    | Notification: "Bedtime in 15 minutes."               |
 | 8:55pm    | Notification: "Bedtime in 5 minutes."                |
 | 9:00pm    | Lock screen + suspend.                               |
-| 9:00pm – 6:00am | If machine wakes, suspend again ~3 minutes later. |
+| 9:00pm – 6:00am | If machine wakes, suspend again ~10 minutes later. |
 | 6:00am    | Window ends.                                         |
 
 ## Override

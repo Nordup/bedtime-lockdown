@@ -1,11 +1,11 @@
 [Unit]
-Description=Bedtime enforce timer (every 3 minutes during lockdown window)
+Description=Bedtime enforce timer (every 10 minutes; suspends if in lockdown window)
 
 [Timer]
-# Fire every 3 minutes, all day. The script is a no-op outside the
-# 21:30..06:00 lockdown window, so the simpler always-on schedule is
+# Fire every 10 minutes, all day. The script is a no-op outside the
+# 21:00..06:00 lockdown window, so the simpler always-on schedule is
 # fine and easier to read than a windowed OnCalendar expression.
-OnCalendar=*-*-* *:0/3
+OnCalendar=*-*-* *:0/10
 Persistent=false
 Unit=sleep-enforce.service
 
