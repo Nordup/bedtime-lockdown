@@ -6,7 +6,7 @@ Built because reminders don't work when you're the kind of person who tells your
 
 ## What it does
 
-At 8:45pm and 8:55pm, you get notifications. At 9:00pm, the screen locks and the machine suspends. Wake it any time before 6am and it suspends again 10 minutes later. Wake again, suspend again. This continues until 6:00am.
+At 8:45pm and 8:55pm, you get notifications. At 9:00pm, the screen locks and the machine suspends. Wake it any time before 6am and it suspends again 5 minutes later. Wake again, suspend again. This continues until 6:00am.
 
 If you have a real emergency, run `sleep-override` from any terminal. It asks three deliberately uncomfortable questions, logs your answers, and grants exactly one hour of unlock. Once per 12 hours, max.
 
@@ -15,7 +15,7 @@ If you have a real emergency, run `sleep-override` from any terminal. It asks th
 | 8:45pm       | Notification: "Bedtime in 15 minutes."               |
 | 8:55pm       | Notification: "Bedtime in 5 minutes."                |
 | 9:00pm       | Lock screen + suspend.                               |
-| 9pm – 6am    | If machine wakes, suspend again 10 minutes later.    |
+| 9pm – 6am    | If machine wakes, suspend again 5 minutes later.     |
 | 6:00am       | Window ends.                                         |
 
 ## Why
@@ -92,7 +92,7 @@ Four bash scripts and six systemd user units. No daemon, no language runtime, no
 ~/.config/systemd/user/
   sleep-warn-15.{service,timer}    "Bedtime in 15 min" at 20:45
   sleep-warn-5.{service,timer}     "Bedtime in 5 min" at 20:55
-  sleep-enforce.{service,timer}    fires every 10 min; suspends if in window
+  sleep-enforce.{service,timer}    fires every 5 min; suspends if in window
 ```
 
 `sleep-enforce` is the heart. Each invocation:
@@ -101,7 +101,7 @@ Four bash scripts and six systemd user units. No daemon, no language runtime, no
 2. If an override is currently active, exit silently.
 3. Otherwise: log the attempt, lock the session, call `systemctl suspend`.
 
-The wake-loop emerges naturally from the `sleep-enforce.timer` config: `OnUnitInactiveSec=10min` schedules each subsequent fire for 10 minutes after the previous service ended. Because `systemctl suspend` blocks until the kernel resumes, "service ends" coincides with "user just woke the machine." So the 10-minute clock self-paces from each wake.
+The wake-loop emerges naturally from the `sleep-enforce.timer` config: `OnUnitInactiveSec=5min` schedules each subsequent fire for 5 minutes after the previous service ended. Because `systemctl suspend` blocks until the kernel resumes, "service ends" coincides with "user just woke the machine." So the 5-minute clock self-paces from each wake.
 
 `sleep-override` is intentionally slow. It asks three questions: what are you doing, why tonight specifically and not tomorrow morning, what time will you actually stop. Empty answers are rejected. The answers go into `~/.config/sleep/overrides.log` so you can read them back later when you wonder why you keep losing sleep. Then it writes `now+1h` into `~/.config/sleep/override-until`. Enforce reads that file on every fire and skips suspending while the override is live.
 
