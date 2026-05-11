@@ -1,0 +1,19 @@
+[Unit]
+Description=Bedtime enforce kickoff timer (calendar-aligned daily fire at 21:00)
+
+[Timer]
+# Calendar trigger to guarantee the first lockdown of the night lands at
+# the bedtime hour exactly. The monotonic sleep-enforce.timer drives the
+# every-5-min wake-loop semantics, but its phase drifts relative to the
+# clock, so without this unit the first suspend after 21:00 can be up to
+# 5 minutes late. This timer plugs that gap.
+#
+# Persistent=false: if the machine was off at 21:00, do not catch up on
+# boot — the monotonic timer fires within 5 min of resume anyway, and a
+# catch-up suspend on boot would skip the warning notifications.
+OnCalendar=*-*-* 21:00:00
+Persistent=false
+Unit=sleep-enforce.service
+
+[Install]
+WantedBy=timers.target

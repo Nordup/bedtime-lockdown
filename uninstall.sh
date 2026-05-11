@@ -8,7 +8,8 @@ UNIT_DIR="$HOME/.config/systemd/user"
 systemctl --user disable --now \
     sleep-warn-15.timer \
     sleep-warn-5.timer \
-    sleep-enforce.timer 2>/dev/null || true
+    sleep-enforce.timer \
+    sleep-enforce-bedtime.timer 2>/dev/null || true
 
 rm -f \
     "$UNIT_DIR/sleep-warn-15.service" \
@@ -16,7 +17,8 @@ rm -f \
     "$UNIT_DIR/sleep-warn-5.service" \
     "$UNIT_DIR/sleep-warn-5.timer" \
     "$UNIT_DIR/sleep-enforce.service" \
-    "$UNIT_DIR/sleep-enforce.timer"
+    "$UNIT_DIR/sleep-enforce.timer" \
+    "$UNIT_DIR/sleep-enforce-bedtime.timer"
 
 rm -f \
     "$BIN_DIR/sleep-warn" \

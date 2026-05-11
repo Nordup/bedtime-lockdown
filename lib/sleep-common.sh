@@ -2,11 +2,13 @@
 # Sourced by bin/sleep-* and by tests.
 #
 # CONFIG NOTE: LOCKDOWN_START_HHMM is the bedtime — when the script
-# locks and suspends. The two warning systemd timers must be kept in
-# lockstep with it by hand (systemd timers can't read shell variables):
+# locks and suspends. Three systemd timers hard-code this value and
+# must be kept in lockstep with it by hand (systemd timers can't read
+# shell variables):
 #
-#   systemd/sleep-warn-15.timer  -> OnCalendar = LOCKDOWN_START - 15 min
-#   systemd/sleep-warn-5.timer   -> OnCalendar = LOCKDOWN_START -  5 min
+#   systemd/sleep-warn-15.timer         -> OnCalendar = LOCKDOWN_START - 15 min
+#   systemd/sleep-warn-5.timer          -> OnCalendar = LOCKDOWN_START -  5 min
+#   systemd/sleep-enforce-bedtime.timer -> OnCalendar = LOCKDOWN_START (sharp)
 #
 # LOCKDOWN_END_HHMM only affects this script's window check; no systemd
 # unit file refers to it.

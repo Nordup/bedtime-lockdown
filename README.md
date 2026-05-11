@@ -41,7 +41,7 @@ cd bedtime-lockdown
 ./install.sh
 ```
 
-This copies four scripts to `~/.local/bin/`, the shared library to `~/.local/share/sleep/`, six systemd user units to `~/.config/systemd/user/`, and enables the timers. Runtime state (logs, override flag) lives in `~/.config/sleep/`.
+This copies four scripts to `~/.local/bin/`, the shared library to `~/.local/share/sleep/`, seven systemd user units to `~/.config/systemd/user/`, and enables the timers. Runtime state (logs, override flag) lives in `~/.config/sleep/`.
 
 After install, three new commands are on your PATH:
 
@@ -60,12 +60,13 @@ OVERRIDE_DURATION_SEC=3600            # 1h unlock per override
 COOLDOWN_SEC=$((12 * 3600))           # one override per 12h
 ```
 
-If you change `LOCKDOWN_START_HHMM`, also update the warning timer files so the notifications still land in lockstep:
+If you change `LOCKDOWN_START_HHMM`, also update the three calendar-aligned timer files so they stay in lockstep:
 
 - `~/.config/systemd/user/sleep-warn-15.timer` — `OnCalendar=` 15 min before bedtime
 - `~/.config/systemd/user/sleep-warn-5.timer` — `OnCalendar=` 5 min before bedtime
+- `~/.config/systemd/user/sleep-enforce-bedtime.timer` — `OnCalendar=` at bedtime sharp
 
-Then reload: `systemctl --user daemon-reload && systemctl --user restart sleep-enforce.timer`.
+Then reload: `systemctl --user daemon-reload && systemctl --user restart sleep-enforce.timer sleep-enforce-bedtime.timer`.
 
 ## Uninstall
 
@@ -77,7 +78,7 @@ Disables the timers, removes the binaries and unit files. Your state directory `
 
 ## How it works
 
-Four bash scripts and six systemd user units. No daemon, no language runtime, no third-party deps.
+Four bash scripts and seven systemd user units. No daemon, no language runtime, no third-party deps.
 
 ```
 ~/.local/bin/
@@ -92,7 +93,9 @@ Four bash scripts and six systemd user units. No daemon, no language runtime, no
 ~/.config/systemd/user/
   sleep-warn-15.{service,timer}    "Bedtime in 15 min" at 20:45
   sleep-warn-5.{service,timer}     "Bedtime in 5 min" at 20:55
-  sleep-enforce.{service,timer}    fires every 5 min; suspends if in window
+  sleep-enforce.service            the suspender (shared by both enforce timers)
+  sleep-enforce.timer              monotonic wake-loop: 5 min after each resume
+  sleep-enforce-bedtime.timer      calendar kickoff: first suspend at 21:00 sharp
 ```
 
 `sleep-enforce` is the heart. Each invocation:
@@ -101,7 +104,7 @@ Four bash scripts and six systemd user units. No daemon, no language runtime, no
 2. If an override is currently active, exit silently.
 3. Otherwise: log the attempt, lock the session, call `systemctl suspend`.
 
-The wake-loop emerges naturally from the `sleep-enforce.timer` config: `OnUnitInactiveSec=5min` schedules each subsequent fire for 5 minutes after the previous service ended. Because `systemctl suspend` blocks until the kernel resumes, "service ends" coincides with "user just woke the machine." So the 5-minute clock self-paces from each wake.
+Two timers drive the service. The calendar timer (`sleep-enforce-bedtime.timer`) fires once at 21:00 sharp so the first suspend of the night lands at the bedtime hour, not up to 5 minutes late. The monotonic timer (`sleep-enforce.timer`) drives the wake-loop: `OnUnitInactiveSec=5min` schedules each subsequent fire for 5 minutes after the previous service ended. Because `systemctl suspend` blocks until the kernel resumes, "service ends" coincides with "user just woke the machine," so the 5-minute clock self-paces from each wake. The service is `Type=oneshot`, so if both timers fire close together systemd silently skips the second activation while the first invocation is still suspended.
 
 `sleep-override` is intentionally slow. It asks three questions: what are you doing, why tonight specifically and not tomorrow morning, what time will you actually stop. Empty answers are rejected. The answers go into `~/.config/sleep/overrides.log` so you can read them back later when you wonder why you keep losing sleep. Then it writes `now+1h` into `~/.config/sleep/override-until`. Enforce reads that file on every fire and skips suspending while the override is live.
 
