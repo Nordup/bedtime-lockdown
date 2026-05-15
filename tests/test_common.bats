@@ -40,9 +40,14 @@ teardown() {
     [ "$status" -eq 1 ]
 }
 
-@test "is_in_lockdown_window: 21:29 is OUT" {
-    run is_in_lockdown_window 2129
+@test "is_in_lockdown_window: 20:59 is OUT (just before start, exclusive boundary on the low side)" {
+    run is_in_lockdown_window 2059
     [ "$status" -eq 1 ]
+}
+
+@test "is_in_lockdown_window: 21:00 is IN (start, inclusive)" {
+    run is_in_lockdown_window 2100
+    [ "$status" -eq 0 ]
 }
 
 @test "is_in_lockdown_window: 12:00 is OUT" {
