@@ -1,0 +1,6 @@
+[Unit]
+Description=Lunch warning (15 min)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/sleep-warn "Lunch in 15 minutes." "Lunch break"

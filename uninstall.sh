@@ -8,17 +8,33 @@ UNIT_DIR="$HOME/.config/systemd/user"
 systemctl --user disable --now \
     sleep-warn-15.timer \
     sleep-warn-5.timer \
+    sleep-warn-lunch-15.timer \
+    sleep-warn-lunch-5.timer \
+    sleep-warn-dinner-15.timer \
+    sleep-warn-dinner-5.timer \
     sleep-enforce.timer \
-    sleep-enforce-bedtime.timer 2>/dev/null || true
+    sleep-enforce-bedtime.timer \
+    sleep-enforce-lunch.timer \
+    sleep-enforce-dinner.timer 2>/dev/null || true
 
 rm -f \
     "$UNIT_DIR/sleep-warn-15.service" \
     "$UNIT_DIR/sleep-warn-15.timer" \
     "$UNIT_DIR/sleep-warn-5.service" \
     "$UNIT_DIR/sleep-warn-5.timer" \
+    "$UNIT_DIR/sleep-warn-lunch-15.service" \
+    "$UNIT_DIR/sleep-warn-lunch-15.timer" \
+    "$UNIT_DIR/sleep-warn-lunch-5.service" \
+    "$UNIT_DIR/sleep-warn-lunch-5.timer" \
+    "$UNIT_DIR/sleep-warn-dinner-15.service" \
+    "$UNIT_DIR/sleep-warn-dinner-15.timer" \
+    "$UNIT_DIR/sleep-warn-dinner-5.service" \
+    "$UNIT_DIR/sleep-warn-dinner-5.timer" \
     "$UNIT_DIR/sleep-enforce.service" \
     "$UNIT_DIR/sleep-enforce.timer" \
-    "$UNIT_DIR/sleep-enforce-bedtime.timer"
+    "$UNIT_DIR/sleep-enforce-bedtime.timer" \
+    "$UNIT_DIR/sleep-enforce-lunch.timer" \
+    "$UNIT_DIR/sleep-enforce-dinner.timer"
 
 rm -f \
     "$BIN_DIR/sleep-warn" \

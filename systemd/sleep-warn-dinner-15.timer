@@ -1,0 +1,10 @@
+[Unit]
+Description=Exercise+dinner warning (15 min) timer
+
+[Timer]
+OnCalendar=*-*-* 16:15:00
+Persistent=false
+Unit=sleep-warn-dinner-15.service
+
+[Install]
+WantedBy=timers.target

@@ -8,22 +8,29 @@ mkdir -p "$SLEEP_HOME"
 
 now=$(date +%s)
 hhmm=$(date +%H%M)
+win=$(current_window "$hhmm")
 
-if ! is_in_lockdown_window "$hhmm"; then
+if [[ "$win" == none ]]; then
     exit 0
 fi
 
-if override_active "$now"; then
+if override_active "$now" "$win"; then
     exit 0
 fi
 
-echo "$(date -Iseconds) suspending" >> "$SLEEP_HOME/enforce.log"
+action="locking"
+[[ "$win" == bedtime ]] && action="suspending"
+echo "$(date -Iseconds)	$win	$action" >> "$SLEEP_HOME/enforce.log"
 
 # Best-effort lock. Try the explicit session first (more robust when the
 # user unit's env is sparse), then fall back to the implicit form. If both
-# fail (e.g. no graphical session yet), continue to suspend anyway.
+# fail (e.g. no graphical session yet), continue anyway.
 loginctl lock-session "${XDG_SESSION_ID:-}" 2>/dev/null \
     || loginctl lock-session 2>/dev/null \
     || true
 
-systemctl suspend
+# Only bedtime hard-suspends. Lunch and dinner just re-lock the screen
+# every 5 min via the monotonic wake-loop timer.
+if [[ "$win" == bedtime ]]; then
+    systemctl suspend
+fi

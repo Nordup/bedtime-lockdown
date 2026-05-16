@@ -1,0 +1,6 @@
+[Unit]
+Description=Exercise+dinner warning (5 min)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/sleep-warn "Exercise + dinner in 5 minutes." "Dinner break"

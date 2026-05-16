@@ -6,20 +6,28 @@ SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
 
 mkdir -p "$SLEEP_HOME"
 
-# Single-writer lock: prevents two concurrent invocations from both
-# passing the cooldown check and double-appending to overrides.log.
-exec 9>"$SLEEP_HOME/override.lock"
-flock -n 9 || { echo "Another sleep-override is running. Try again." >&2; exit 1; }
-
 now=$(date +%s)
-remaining=$(cooldown_remaining "$now")
-if (( remaining > 0 )); then
-    printf 'Override already used. Cooldown remaining: %s\n' "$(format_hm "$remaining")" >&2
+hhmm=$(date +%H%M)
+win=$(current_window "$hhmm")
+
+if [[ "$win" == none ]]; then
+    echo "No active enforcement window right now. Override is only useful inside a lock window." >&2
     exit 1
 fi
 
-# Read one non-empty answer for the given prompt. Empty / whitespace-only
-# input is rejected and re-prompted.
+# Per-window single-writer lock: prevents two concurrent invocations
+# from both passing the cooldown check and double-appending the log.
+exec 9>"$SLEEP_HOME/override.${win}.lock"
+flock -n 9 || { echo "Another sleep-override is running. Try again." >&2; exit 1; }
+
+remaining=$(cooldown_remaining "$now" "$win")
+if (( remaining > 0 )); then
+    printf 'Override for %s already used. Cooldown remaining: %s\n' "$win" "$(format_hm "$remaining")" >&2
+    exit 1
+fi
+
+# Read one non-empty answer. Empty / whitespace-only input is rejected
+# and re-prompted.
 read_answer() {
     local question=$1 answer
     while true; do
@@ -32,14 +40,41 @@ read_answer() {
     done
 }
 
+case "$win" in
+    bedtime)
+        q2="Why tonight specifically, and not tomorrow morning?"
+        ;;
+    lunch)
+        q2="Why is this lunch break the wrong time to step away?"
+        ;;
+    dinner)
+        q2="Why is this exercise + dinner break the wrong time to step away?"
+        ;;
+esac
+
 a1=$(read_answer "What are you doing right now?")
-a2=$(read_answer "Why tonight specifically, and not tomorrow morning?")
+a2=$(read_answer "$q2")
 a3=$(read_answer "What time will you actually stop?")
 
-expires=$((now + OVERRIDE_DURATION_SEC))
+# Bedtime grants a fixed 1 h reprieve (the suspend loop is the heavy
+# enforcement and 1 h matches the original calibration). Breaks grant
+# until end of the current window — the lock is gentle enough that
+# end-of-window is the right unit.
+if [[ "$win" == bedtime ]]; then
+    expires=$((now + OVERRIDE_DURATION_SEC))
+else
+    expires=$(window_end_epoch "$win" "$now")
+fi
+
 ts=$(date -Iseconds)
+log_path=$(overrides_log_path "$win")
+until_path=$(override_until_path "$win")
 
-printf '%s\t%s\t%s\t%s\n' "$ts" "$a1" "$a2" "$a3" >> "$SLEEP_HOME/overrides.log"
-echo "$expires" > "$SLEEP_HOME/override-until"
+printf '%s\t%s\t%s\t%s\n' "$ts" "$a1" "$a2" "$a3" >> "$log_path"
+echo "$expires" > "$until_path"
 
-echo "Override granted until $(date -d "@$expires" "+%H:%M"). Sleep well."
+if [[ "$win" == bedtime ]]; then
+    echo "Override granted until $(date -d "@$expires" "+%H:%M"). Sleep well."
+else
+    echo "Override granted for $win until $(date -d "@$expires" "+%H:%M")."
+fi

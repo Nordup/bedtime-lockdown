@@ -6,35 +6,51 @@ SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
 
 now=$(date +%s)
 hhmm=$(date +%H%M)
-window_label="$(format_hhmm_as_clock "$LOCKDOWN_START_HHMM") - $(format_hhmm_as_clock "$LOCKDOWN_END_HHMM")"
+active_win=$(current_window "$hhmm")
 
 echo "Now:           $(date)"
-if is_in_lockdown_window "$hhmm"; then
-    echo "Lockdown:      ACTIVE (window $window_label)"
-else
-    echo "Lockdown:      inactive (window $window_label)"
-fi
+echo "Active window: $active_win"
+echo
 
-if override_active "$now"; then
-    until=$(<"$SLEEP_HOME/override-until")
-    echo "Override:      active until $(date -d "@$until" "+%H:%M")"
-else
-    echo "Override:      none"
-fi
+# Print one block per window, scaled to fit on one screen.
+print_window_block() {
+    local label=$1 win=$2 start=$3 end=$4
+    local window_label="$(format_hhmm_as_clock "$start") - $(format_hhmm_as_clock "$end")"
+    local active="inactive"
+    [[ "$active_win" == "$win" ]] && active="ACTIVE"
+    printf '%-8s window %s   %s\n' "$label" "$window_label" "$active"
 
-remaining=$(cooldown_remaining "$now")
-if (( remaining > 0 )); then
-    printf 'Cooldown:      %s remaining\n' "$(format_hm "$remaining")"
-else
-    echo "Cooldown:      ready (no override on cooldown)"
-fi
+    if override_active "$now" "$win"; then
+        local until
+        until=$(<"$(override_until_path "$win")")
+        printf '         override active until %s\n' "$(date -d "@$until" "+%H:%M")"
+    else
+        echo "         override: none"
+    fi
 
-today=$(date +%Y-%m-%d)
-count=0
-if [[ -s "$SLEEP_HOME/overrides.log" ]]; then
-    count=$(grep -c "^$today" "$SLEEP_HOME/overrides.log" || true)
-fi
-echo "Overrides today: $count"
+    local remaining
+    remaining=$(cooldown_remaining "$now" "$win")
+    if (( remaining > 0 )); then
+        printf '         cooldown: %s remaining\n' "$(format_hm "$remaining")"
+    else
+        echo "         cooldown: ready"
+    fi
+
+    local log_path today count
+    log_path=$(overrides_log_path "$win")
+    today=$(date +%Y-%m-%d)
+    count=0
+    if [[ -s "$log_path" ]]; then
+        count=$(grep -c "^$today" "$log_path" || true)
+    fi
+    printf '         overrides today: %s\n' "$count"
+}
+
+print_window_block "Bedtime" bedtime "$LOCKDOWN_START_HHMM" "$LOCKDOWN_END_HHMM"
+echo
+print_window_block "Lunch" lunch "$LUNCH_START_HHMM" "$LUNCH_END_HHMM"
+echo
+print_window_block "Dinner" dinner "$DINNER_START_HHMM" "$DINNER_END_HHMM"
 
 echo
 echo "Last 5 enforce events:"
@@ -45,9 +61,19 @@ else
 fi
 
 echo
-echo "Last 5 overrides:"
-if [[ -s "$SLEEP_HOME/overrides.log" ]]; then
-    tail -n 5 "$SLEEP_HOME/overrides.log"
+echo "Last 5 overrides (across all windows):"
+overrides=$(
+    for win in bedtime lunch dinner; do
+        f=$(overrides_log_path "$win")
+        [[ -s "$f" ]] || continue
+        # Tag each line with the window name so the merged view is readable.
+        while IFS= read -r line; do
+            printf '%s\t[%s]\t%s\n' "${line%%$'\t'*}" "$win" "${line#*$'\t'}"
+        done < "$f"
+    done | sort | tail -n 5
+)
+if [[ -n "$overrides" ]]; then
+    echo "$overrides"
 else
     echo "  (none)"
 fi

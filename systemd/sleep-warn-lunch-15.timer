@@ -1,0 +1,10 @@
+[Unit]
+Description=Lunch warning (15 min) timer
+
+[Timer]
+OnCalendar=*-*-* 11:15:00
+Persistent=false
+Unit=sleep-warn-lunch-15.service
+
+[Install]
+WantedBy=timers.target
