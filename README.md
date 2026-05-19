@@ -1,32 +1,32 @@
 # Bedtime Lockdown
 
-Desktop service for Linux and Windows that hard-suspends your machine at bedtime and keeps it suspended through the night, with a deliberately high-friction override path for genuine emergencies. The Linux build adds two gentler daytime windows that re-lock the screen for lunch and exercise+dinner, with per-window override isolation. (Windows is bedtime-only for now — see TODO at end.)
+Desktop service for Linux and Windows that locks your screen at bedtime and keeps re-locking it through the night, with a deliberately high-friction override path for genuine emergencies. The Linux build adds two daytime windows on the same mechanism for lunch and exercise+dinner, plus an agent-mode escape hatch that explicitly blanks the display so background agents can run on a dark machine. (Windows is bedtime-only and still suspends the machine — see TODO at end.)
 
 Built because reminders don't work when you're the kind of person who tells yourself "just five more minutes" at 1am every night — and the same brain skips meals and skips exercise the same way.
 
 ## What it does
 
-Three daily enforcement windows. Bedtime hard-suspends the machine; lunch and exercise+dinner just re-lock the screen every five minutes (you're awake and at the machine — the lock is enough).
+Three daily enforcement windows, all on the same code path: lock the screen and re-lock every 5 min until the window ends. No automatic suspend — that broke overnight agent runs, and the screen-lock alone (plus the friction of typing your password every five minutes) carries enough weight in practice.
 
 | Time            | Event                                                       |
 |-----------------|-------------------------------------------------------------|
 | 11:15am         | Notification: "Lunch in 15 minutes."                        |
 | 11:25am         | Notification: "Lunch in 5 minutes."                         |
-| 11:30am – 12:15pm | Screen re-locks every 5 min. No suspend.                  |
+| 11:30am – 12:15pm | Screen re-locks every 5 min.                              |
 | 4:15pm          | Notification: "Exercise + dinner in 15 minutes."            |
 | 4:25pm          | Notification: "Exercise + dinner in 5 minutes."             |
-| 4:30pm – 6:30pm | Screen re-locks every 5 min. No suspend.                    |
+| 4:30pm – 6:30pm | Screen re-locks every 5 min.                                |
 | 8:45pm          | Notification: "Bedtime in 15 minutes."                      |
 | 8:55pm          | Notification: "Bedtime in 5 minutes."                       |
-| 9:00pm          | Lock screen + suspend.                                      |
-| 9pm – 6am       | If machine wakes, suspend again 5 minutes later.            |
-| 6:00am          | Window ends.                                                |
+| 9:00pm – 6:00am | Screen re-locks every 5 min.                                |
 
 If you have a real emergency inside any window, run `sleep-override` from any terminal. It detects which window is active, asks three deliberately uncomfortable questions, logs your answers, and grants unlock. Bedtime grants one hour; lunch and dinner grant until the end of the current break. One override per window per 12 hours — each window's quota is independent.
 
+If you're stepping away during any window and want the screen physically off (and you want a long-running agent to keep working in the background), run `sleep-agent` (Linux only). It locks the session, blanks the display via Mutter's `DisplayConfig` D-Bus, and spawns a backgrounded `systemd-inhibit` that holds idle-suspend blocked until the current window ends. The re-lock loop also defers while agent-mode is active, so coming back is just one password prompt. Mouse or keyboard wakes the display back to the lock screen. Works the same in all three windows. Logged to `agent.log`.
+
 ## Why
 
-Most "focus" tools block websites or apps. None of them turn the computer off — or even force you to step away from it during meals. Cold Turkey's *Frozen Turkey* mode is the closest match conceptually for the bedtime piece, and it's the inspiration for this project — a free, scriptable equivalent that runs on Linux (bash + systemd) and Windows (PowerShell + Task Scheduler). The Linux build extends the same mechanism to two daytime "step away from the screen" windows.
+Most "focus" tools block websites or apps. None of them lock the screen at scheduled times — or even force you to step away from it during meals. Cold Turkey's *Frozen Turkey* mode is the closest match conceptually for the bedtime piece, and it's the inspiration for this project — a free, scriptable equivalent that runs on Linux (bash + systemd) and Windows (PowerShell + Task Scheduler). The Linux build extends the same mechanism to two daytime "step away from the screen" windows, with an agent-mode escape hatch that explicitly turns the display off so background work isn't blocked.
 
 The override is the design's interesting part. Pure bedtime locks tend to fail in two failure modes: (a) too easy to override → user uses it every night and it changes nothing, (b) too hard to override → user disables the whole system on the first stressful night. The three-question form is calibrated to be slow enough that addiction-brain takes the path of least resistance and goes to bed, while still giving you a way out if there's an actual fire.
 
@@ -37,9 +37,9 @@ The override is the design's interesting part. Pure bedtime locks tend to fail i
 - A systemd-based Linux desktop.
 - `notify-send` (libnotify) for the warning notifications.
 - A graphical session that responds to `loginctl lock-session`.
-- Polkit configured to let the user run `systemctl suspend` without a password (default on most distros, including Manjaro).
+- For `sleep-agent`: GNOME (Mutter) for the `DisplayConfig` D-Bus call that blanks the display, and `systemd-inhibit` (ships with systemd).
 
-Tested on Manjaro + GNOME on Wayland. Should work on any modern systemd Linux with a desktop environment.
+Tested on Manjaro + GNOME on Wayland. Lock and override should work on any modern systemd Linux with a desktop environment; `sleep-agent`'s display-blank step is GNOME-specific and will warn and continue on other DEs.
 
 **Windows:**
 
@@ -61,8 +61,9 @@ This copies four scripts to `~/.local/bin/`, the shared library to `~/.local/sha
 
 After install, three new commands are on your PATH:
 
-- `sleep-status` — show all three windows, last 5 enforce events, last 5 overrides.
+- `sleep-status` — show all three windows, agent-mode state, last 5 enforce events, last 5 overrides.
 - `sleep-override` — interactive 3-question CLI. Detects the active window automatically.
+- `sleep-agent` — one-shot: lock, blank the display, inhibit idle-suspend until the current window ends. No questions, no cooldown — designed for routine "stepping away with an agent running" use, multiple times per day.
 - `sleep-warn` and `sleep-enforce` exist but you don't run them manually; systemd does.
 
 ## Install — Windows
@@ -146,9 +147,10 @@ Same overall design on both platforms: four scripts, a shared logic library, sch
 ```
 ~/.local/bin/
   sleep-warn        3-line wrapper around `notify-send` (takes title + body)
-  sleep-enforce     the locker/suspender, run by systemd timers
+  sleep-enforce     the locker, run by systemd timers
   sleep-override    the friction CLI (window-aware)
   sleep-status      read-only diagnostic
+  sleep-agent       agent-mode: lock + blank + idle-suspend inhibitor, until end of current window
 
 ~/.local/share/sleep/
   sleep-common.sh   pure logic helpers (window detection, override check, cooldown calc)
@@ -194,10 +196,11 @@ Task Scheduler \BedtimeLockdown\
 On **Linux**:
 
 1. Detect the current window (`bedtime` / `lunch` / `dinner` / `none`). If `none`, exit silently — most fires hit this branch.
-2. If an override is active for the current window, exit silently.
-3. Otherwise: log the attempt with the window name, lock the session. For bedtime only, also call `systemctl suspend`.
+2. If agent-mode is active, exit silently — `sleep-agent` has the screen blanked and idle-suspend inhibited.
+3. If an override is active for the current window, exit silently.
+4. Otherwise: log the attempt with the window name, lock the session.
 
-Three calendar timers (one per window) phase-align the first enforce to the window start. The single monotonic timer (`sleep-enforce.timer`) drives the wake-loop: `OnUnitInactiveSec=5min` schedules each subsequent fire for 5 minutes after the previous service ended. Inside lunch/dinner the service ends immediately (lock returns at once), so re-lock cadence is ~5 min from clock. Inside bedtime, `systemctl suspend` blocks until resume, so the 5-minute clock self-paces from each wake. The service is `Type=oneshot`, so if calendar + monotonic both fire close together systemd silently skips the second activation.
+All three windows share this single code path — bedtime used to also call `systemctl suspend`, but suspend killed in-flight background agents, so the project now relies on the lock-loop + agent-mode escape hatch instead. Three calendar timers (one per window) phase-align the first enforce to the window start. The single monotonic timer (`sleep-enforce.timer`) drives the wake-loop: `OnUnitInactiveSec=5min` schedules each subsequent fire for 5 minutes after the previous service ended. The service is `Type=oneshot`, so if calendar + monotonic both fire close together systemd silently skips the second activation.
 
 On **Windows** (bedtime-only):
 
@@ -209,6 +212,8 @@ The wake-loop uses a Task Scheduler event trigger on Event ID 1 from `Microsoft-
 
 `sleep-override` is intentionally slow. On Linux it's window-aware: it detects which window is active, asks three questions tailored to that window — what are you doing, why is *this* break the wrong time to step away (or, for bedtime, why tonight and not tomorrow morning), what time will you actually stop. Empty answers are rejected. Answers go into a per-window log (`overrides.log`, `overrides-lunch.log`, `overrides-dinner.log`). Bedtime grants `now+1h` and writes `override-until`; breaks grant until end of the current window and write `override-until-lunch` or `override-until-dinner`. Enforce reads only the file matching the current window, so skipping lunch never affects bedtime. On Windows, the override is bedtime-only: three questions, grants `now+1h`, writes `override-until`. Single-writer guard is `flock` on Linux, a named `System.Threading.Mutex` on Windows — same role: prevent two concurrent invocations from both passing the cooldown check and double-appending to the log.
 
+`sleep-agent` is the routine-friction counterpart. Inside any active window, one command flips the machine into agent-mode: locks the session, blanks the display via `gdbus call ... org.gnome.Mutter.DisplayConfig.SetPowerSaveMode 3`, and spawns a detached `setsid systemd-inhibit --what=idle:sleep ... sleep $duration` that lives until the window ends and then exits on its own (releasing the inhibitor). It writes `agent-until` (the window-end epoch) so `sleep-enforce` skips its lock loop, and `agent-inhibit.pid` so a re-run can clean up any leftover inhibitor. One line per use lands in `agent.log`. No questions, no cooldown — designed for 3x/day routine ("walking away during lunch, an agent is running"), not for justifying rule-breaks.
+
 ## Anti-cheat philosophy
 
 This is not tamper-proof. You are root on your own machine. If you really want to disable it at 8:55pm, `systemctl --user stop sleep-enforce.timer` works. The system relies on the override being faster and lower-shame than disabling — addiction-brain takes the path of least resistance, and the override path is paved while the disable path requires a deliberate moral act. Calibrate the override friction up if you find yourself bypassing too easily; calibrate it down if you find yourself disabling.
@@ -217,9 +222,9 @@ This is not tamper-proof. You are root on your own machine. If you really want t
 
 **Linux:**
 
-- **Wifi resume on MediaTek chipsets:** some `mt7921e` cards throw `error -110` on resume. The driver re-initializes itself successfully most of the time. If yours doesn't, `sudo modprobe -r mt7921e && sudo modprobe mt7921e` reloads it.
 - **Screen locking depends on your DE** correctly handling `loginctl lock-session`. Tested on GNOME Wayland. Should work on KDE, XFCE, etc., but verify on your setup.
-- **Service stays "active" during suspend** in systemd's view, because `systemctl suspend` blocks until resume. This is intentional — it's what lets the wake-loop self-pace from each resume rather than from absolute clock marks.
+- **`sleep-agent`'s display blank is GNOME-specific.** It calls Mutter's `DisplayConfig.SetPowerSaveMode` over D-Bus. On other DEs the script warns and continues — lock + inhibitor still apply, but the screen won't go dark explicitly. Equivalent calls for KDE/XFCE/sway are TODO.
+- **`sleep-enforce` no longer suspends.** Earlier versions hard-suspended at bedtime; that broke overnight agent runs. The lock loop carries the weight now, with `sleep-agent` as the explicit "step away" command. The Windows port still suspends because its three-window port is unfinished — see TODO.
 
 **Windows:**
 
@@ -229,14 +234,14 @@ This is not tamper-proof. You are root on your own machine. If you really want t
 
 ## Tests
 
-**Linux** — 27 unit tests in `bats`:
+**Linux** — 68 unit tests in `bats`:
 
 ```bash
 sudo pacman -S bats   # or your distro's equivalent
 bats tests/
 ```
 
-62 unit tests covering the pure logic helpers: window detection across all three windows, per-window override and cooldown isolation, window_end_epoch resolution including the bedtime midnight roll, and the original bedtime edge cases (malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log last-entry-wins, corrupted timestamp fails closed via stderr).
+68 unit tests covering the pure logic helpers: window detection across all three windows, per-window override and cooldown isolation, `agent_mode_active` semantics, `window_end_epoch` resolution including the bedtime midnight roll, and the original bedtime edge cases (malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log last-entry-wins, corrupted timestamp fails closed via stderr).
 
 **Windows** — 27 unit tests + 26 integration tests in Pester 5 (bedtime-only — see TODO):
 
@@ -275,17 +280,18 @@ These are general-purpose tools — no friction override, no wake-loop, no conce
 - [zengargoyle/selfcontrol](https://github.com/zengargoyle/selfcontrol) — port of Mac SelfControl. Old (GTK2), "most likely broken" per its own readme.
 - LeechBlock, Pluckeye, DigitalZen — content blockers, mostly browser-based or commercial.
 
-If you want website/app blocking rather than full machine suspend, one of these will fit better.
+If you want website/app blocking rather than scheduled screen lock + step-away enforcement, one of these will fit better.
 
 **Opposite direction, will confuse a search:**
 
 - [bulletmark/sleep-inhibitor](https://github.com/bulletmark/sleep-inhibitor), [mrmekon/circadian](https://github.com/mrmekon/circadian) — these *prevent* suspend or suspend-on-idle. Useful tools, opposite trigger condition.
 
-The specific combination of *scheduled hard suspend + friction override + wake-loop*, free and scriptable on both Linux and Windows, doesn't seem to exist anywhere else, which is why this repo exists.
+The specific combination of *scheduled multi-window screen lock + friction override + wake-loop + agent-mode escape hatch*, free and scriptable, doesn't seem to exist anywhere else, which is why this repo exists. (The Windows port is older and still hard-suspends at bedtime — see TODO.)
 
 ## TODO
 
-- **Windows three-window port.** The Linux build has lunch and exercise+dinner windows with per-window override isolation; the Windows build is still bedtime-only. Bringing parity requires porting the window detection and per-window override files from `lib/sleep-common.sh` to `lib/sleep-common.ps1`, adding lunch/dinner triggers to `install.ps1`, making `sleep-enforce.ps1` and `sleep-override.ps1` window-aware, and expanding the Pester unit tests to match the bats suite.
+- **Windows three-window port + drop-suspend port.** The Linux build has lunch and exercise+dinner windows with per-window override isolation, and no longer suspends at bedtime (relying on the lock loop + `sleep-agent` instead). The Windows build is still bedtime-only and still hard-suspends. Bringing parity requires porting the window detection and per-window override files from `lib/sleep-common.sh` to `lib/sleep-common.ps1`, adding lunch/dinner triggers to `install.ps1`, making `sleep-enforce.ps1` and `sleep-override.ps1` window-aware, removing the `SetSuspendState` call, and porting `sleep-agent` (Windows equivalent of the GNOME `DisplayConfig` blank is `SetThreadExecutionState(ES_DISPLAY_REQUIRED)` toggled off, plus monitor-off via `SendMessage(WM_SYSCOMMAND, SC_MONITORPOWER, 2)`).
+- **Non-GNOME `sleep-agent` display blank.** The current implementation calls Mutter's `DisplayConfig` D-Bus interface, so only GNOME blanks the display explicitly. KDE has a similar interface (`org.kde.KWin`), sway/Wayland compositors expose `wlr-output-power-management`, and X11 supports `xset dpms force off`. Detect and dispatch.
 
 ## Origin
 

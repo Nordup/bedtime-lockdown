@@ -176,6 +176,22 @@ cooldown_remaining() {
     fi
 }
 
+# agent_mode_active [epoch_now]
+#   Returns 0 iff agent-mode is active: $SLEEP_HOME/agent-until exists,
+#   contains a numeric epoch, and that epoch is strictly greater than
+#   now. Agent-mode bypasses every enforcement window — display blanked,
+#   PC stays awake, idle-suspend inhibited, lock loop skips this fire.
+#   See bin/sleep-agent. Fails closed on any garbage.
+agent_mode_active() {
+    local now=${1:-$(date +%s)}
+    local f="$SLEEP_HOME/agent-until"
+    [[ -f "$f" ]] || return 1
+    local until
+    until=$(<"$f")
+    [[ "$until" =~ ^[0-9]+$ ]] || return 1
+    (( until > now ))
+}
+
 # format_hm <seconds>
 #   Prints HH:MM with the seconds component truncated. Used for
 #   user-facing cooldown messages.

@@ -13,6 +13,7 @@ install -m 755 "$REPO_ROOT/bin/sleep-warn"      "$BIN_DIR/sleep-warn"
 install -m 755 "$REPO_ROOT/bin/sleep-enforce"   "$BIN_DIR/sleep-enforce"
 install -m 755 "$REPO_ROOT/bin/sleep-override"  "$BIN_DIR/sleep-override"
 install -m 755 "$REPO_ROOT/bin/sleep-status"    "$BIN_DIR/sleep-status"
+install -m 755 "$REPO_ROOT/bin/sleep-agent"     "$BIN_DIR/sleep-agent"
 
 install -m 644 "$REPO_ROOT/lib/sleep-common.sh" "$LIB_DIR/sleep-common.sh"
 

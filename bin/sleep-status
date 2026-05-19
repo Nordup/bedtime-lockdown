@@ -10,6 +10,14 @@ active_win=$(current_window "$hhmm")
 
 echo "Now:           $(date)"
 echo "Active window: $active_win"
+
+if agent_mode_active "$now"; then
+    until=$(<"$SLEEP_HOME/agent-until")
+    printf 'Agent-mode:    ACTIVE until %s (display off, idle-suspend inhibited)\n' \
+        "$(date -d "@$until" "+%H:%M")"
+else
+    echo "Agent-mode:    inactive"
+fi
 echo
 
 # Print one block per window, scaled to fit on one screen.

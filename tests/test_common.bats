@@ -384,6 +384,46 @@ teardown() {
 }
 
 # ------------------------------------------------------------------
+# agent_mode_active
+# ------------------------------------------------------------------
+
+@test "agent_mode_active: returns 1 when file is missing" {
+    run agent_mode_active 1700000000
+    [ "$status" -eq 1 ]
+}
+
+@test "agent_mode_active: returns 0 when agent-until > now" {
+    echo "1700000060" > "$SLEEP_HOME/agent-until"
+    run agent_mode_active 1700000000
+    [ "$status" -eq 0 ]
+}
+
+@test "agent_mode_active: returns 1 when agent-until == now (strict >)" {
+    echo "1700000000" > "$SLEEP_HOME/agent-until"
+    run agent_mode_active 1700000000
+    [ "$status" -eq 1 ]
+}
+
+@test "agent_mode_active: returns 1 when file is empty" {
+    : > "$SLEEP_HOME/agent-until"
+    run agent_mode_active 1700000000
+    [ "$status" -eq 1 ]
+}
+
+@test "agent_mode_active: returns 1 when file contains non-numeric garbage" {
+    echo "not-a-number" > "$SLEEP_HOME/agent-until"
+    run agent_mode_active 1700000000
+    [ "$status" -eq 1 ]
+}
+
+@test "agent_mode_active: ignores per-window override-until files" {
+    echo "1700000060" > "$SLEEP_HOME/override-until"
+    echo "1700000060" > "$SLEEP_HOME/override-until-lunch"
+    run agent_mode_active 1700000000
+    [ "$status" -eq 1 ]
+}
+
+# ------------------------------------------------------------------
 # window_end_epoch
 # ------------------------------------------------------------------
 

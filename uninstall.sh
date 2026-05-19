@@ -41,6 +41,7 @@ rm -f \
     "$BIN_DIR/sleep-enforce" \
     "$BIN_DIR/sleep-override" \
     "$BIN_DIR/sleep-status" \
+    "$BIN_DIR/sleep-agent" \
     "$LIB_DIR/sleep-common.sh"
 
 rmdir "$LIB_DIR" 2>/dev/null || true

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SLEEP_LIB="${SLEEP_LIB:-$HOME/.local/share/sleep}"
+SLEEP_HOME="${SLEEP_HOME:-$HOME/.config/sleep}"
+. "$SLEEP_LIB/sleep-common.sh"
+
+mkdir -p "$SLEEP_HOME"
+
+now=$(date +%s)
+hhmm=$(date +%H%M)
+win=$(current_window "$hhmm")
+
+if [[ "$win" == none ]]; then
+    echo "No active enforcement window right now. Sleep-agent only does something inside lunch, dinner, or bedtime." >&2
+    exit 1
+fi
+
+# Single-writer lock to prevent two concurrent invocations.
+exec 9>"$SLEEP_HOME/agent.lock"
+flock -n 9 || { echo "Another sleep-agent is running. Try again." >&2; exit 1; }
+
+if agent_mode_active "$now"; then
+    until=$(<"$SLEEP_HOME/agent-until")
+    printf 'Agent-mode already active until %s. Nothing to do.\n' \
+        "$(date -d "@$until" "+%H:%M")"
+    exit 0
+fi
+
+# Expiry = end of current window (06:00 for bedtime, 12:15 for lunch,
+# 18:30 for dinner with defaults). DRY with sleep-override's break grant.
+expires=$(window_end_epoch "$win" "$now")
+duration=$((expires - now))
+
+ts=$(date -Iseconds)
+printf '%s\t%s\n' "$ts" "$win" >> "$SLEEP_HOME/agent.log"
+echo "$expires" > "$SLEEP_HOME/agent-until"
+
+# Kill any leftover inhibitor from a previous run. Should be none in
+# practice (each previous one self-terminates at window-end), but a
+# crash or kill could leave a zombie.
+if [[ -f "$SLEEP_HOME/agent-inhibit.pid" ]]; then
+    old=$(<"$SLEEP_HOME/agent-inhibit.pid")
+    if [[ "$old" =~ ^[0-9]+$ ]]; then
+        kill "$old" 2>/dev/null || true
+    fi
+fi
+
+# Spawn backgrounded inhibitor that holds idle:sleep blocked until the
+# window ends. systemd-inhibit takes a command and holds the inhibitor
+# for the lifetime of that command — `sleep $duration` does the job.
+# setsid + redirect detaches it cleanly from this terminal.
+setsid systemd-inhibit \
+    --what=idle:sleep \
+    --who=sleep-agent \
+    --why="agent running in $win window" \
+    --mode=block \
+    sleep "$duration" </dev/null >/dev/null 2>&1 &
+echo $! > "$SLEEP_HOME/agent-inhibit.pid"
+
+# Lock first (so a stray bump doesn't reveal the unlocked desktop), then
+# blank via Mutter's DisplayConfig D-Bus. SetPowerSaveMode: 0=on, 3=off.
+loginctl lock-session "${XDG_SESSION_ID:-}" 2>/dev/null \
+    || loginctl lock-session 2>/dev/null \
+    || true
+
+gdbus call --session \
+    --dest org.gnome.Mutter.DisplayConfig \
+    --object-path /org/gnome/Mutter/DisplayConfig \
+    --method org.gnome.Mutter.DisplayConfig.SetPowerSaveMode 3 \
+    >/dev/null 2>&1 \
+    || echo "warning: could not blank the display (not on GNOME Mutter?). PC will still stay awake." >&2
+
+echo "Agent-mode active in $win window until $(date -d "@$expires" "+%H:%M"). Display off, any key wakes."
