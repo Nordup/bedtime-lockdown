@@ -1,5 +1,5 @@
 [Unit]
-Description=Bedtime enforce (lock + suspend if in window)
+Description=Bedtime enforce (lock screen if in window)
 
 [Service]
 Type=oneshot

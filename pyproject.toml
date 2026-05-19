@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sleep-lockdown"
+version = "0.2.0"
+description = "Scheduled screen-lock windows (bedtime, lunch, dinner) with friction override and agent-mode escape hatch. Cross-platform."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+windows = ["winrt-Windows.UI.Notifications>=2.0; sys_platform == 'win32'", "winrt-Windows.Data.Xml.Dom>=2.0; sys_platform == 'win32'"]
+test = ["pytest>=7"]
+
+[project.scripts]
+sleep-enforce  = "sleep_lockdown.enforce:main"
+sleep-agent    = "sleep_lockdown.agent:main"
+sleep-override = "sleep_lockdown.override:main"
+sleep-status   = "sleep_lockdown.status:main"
+sleep-warn     = "sleep_lockdown.warn:main"
+
+[tool.setuptools.packages.find]
+include = ["sleep_lockdown*"]
