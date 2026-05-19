@@ -110,9 +110,14 @@ def enforce_log_path() -> Path:
     return state_dir() / "enforce.log"
 
 
-def _read_epoch_file(path: Path) -> Optional[int]:
+def read_until_epoch(path: Path) -> Optional[int]:
     """Read a file containing a single integer epoch. Returns None on any
-    failure (missing, empty, non-numeric) — fail closed."""
+    failure (missing, empty, non-numeric) — fail closed.
+
+    Public so the CLI commands can re-read an until-file without
+    duplicating the validation logic that override_active / agent_mode_active
+    already do internally.
+    """
     try:
         raw = path.read_text().strip()
     except (FileNotFoundError, PermissionError):
@@ -127,7 +132,7 @@ def override_active(now_epoch: Optional[int] = None, window: str = "bedtime") ->
     a numeric epoch strictly greater than now."""
     if now_epoch is None:
         now_epoch = int(time.time())
-    until = _read_epoch_file(override_until_path(window))
+    until = read_until_epoch(override_until_path(window))
     return until is not None and until > now_epoch
 
 
@@ -136,7 +141,7 @@ def agent_mode_active(now_epoch: Optional[int] = None) -> bool:
     suspend inhibited. Single global state; not per-window."""
     if now_epoch is None:
         now_epoch = int(time.time())
-    until = _read_epoch_file(agent_until_path())
+    until = read_until_epoch(agent_until_path())
     return until is not None and until > now_epoch
 
 

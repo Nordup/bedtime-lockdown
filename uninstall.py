@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Cross-platform uninstaller. Mirrors install.py."""
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -52,7 +53,7 @@ def uninstall_linux() -> None:
     print("Remove manually with: rm -rf ~/.config/sleep")
 
 
-def uninstall_windows() -> None:
+def uninstall_windows(purge: bool = False) -> None:
     base = Path(os.environ.get("LOCALAPPDATA",
                                str(Path.home() / "AppData" / "Local"))) / "sleep-lockdown"
     bin_dir = base / "bin"
@@ -83,7 +84,7 @@ def uninstall_windows() -> None:
         if d.exists():
             shutil.rmtree(d)
 
-    if "--purge" in sys.argv:
+    if purge:
         state_dir = base / "state"
         if state_dir.exists():
             shutil.rmtree(state_dir)
@@ -110,8 +111,19 @@ def _remove_user_path_windows(entry: str) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="uninstall.py",
+        description="Uninstall sleep-lockdown.",
+    )
+    parser.add_argument(
+        "--purge", action="store_true",
+        help="Also remove the runtime state directory (logs and override flags). "
+             "Only honored on Windows; the Linux uninstaller never deletes state.",
+    )
+    args = parser.parse_args()
+
     if sys.platform == "win32":
-        uninstall_windows()
+        uninstall_windows(purge=args.purge)
     else:
         uninstall_linux()
     return 0

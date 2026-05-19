@@ -23,18 +23,16 @@ class LinuxBackend(PlatformBackend):
     def lock_session(self) -> None:
         # Try the explicit session ID first (more robust when the user
         # unit's env is sparse), then fall back to the implicit form.
+        # Both failing usually means no graphical session yet — stay
+        # silent; this matches the bash version's `|| true` behavior.
         session_id = os.environ.get("XDG_SESSION_ID", "")
-        for cmd in (
-            ["loginctl", "lock-session", session_id] if session_id else None,
-            ["loginctl", "lock-session"],
-        ):
-            if cmd is None:
-                continue
-            r = subprocess.run(cmd, capture_output=True)
-            if r.returncode == 0:
+        attempts = []
+        if session_id:
+            attempts.append(["loginctl", "lock-session", session_id])
+        attempts.append(["loginctl", "lock-session"])
+        for cmd in attempts:
+            if subprocess.run(cmd, capture_output=True).returncode == 0:
                 return
-        # All failed — likely no graphical session yet. Stay silent;
-        # this matches the bash version's `|| true` behavior.
 
     def blank_display(self) -> bool:
         # SetPowerSaveMode: 0=on, 1=standby, 2=suspend, 3=off.

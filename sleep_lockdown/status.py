@@ -25,9 +25,9 @@ def main() -> int:
     print(f"Now:           {datetime.now()}")
     print(f"Active window: {active_win}")
 
-    if common.agent_mode_active(now):
-        until = int(common.agent_until_path().read_text().strip())
-        until_hm = datetime.fromtimestamp(until).strftime("%H:%M")
+    agent_until = common.read_until_epoch(common.agent_until_path())
+    if agent_until is not None and agent_until > now:
+        until_hm = datetime.fromtimestamp(agent_until).strftime("%H:%M")
         print(
             f"Agent-mode:    ACTIVE until {until_hm} "
             "(display off, idle-suspend inhibited)"
@@ -58,9 +58,9 @@ def _print_window_block(label: str, win: str, start: int, end: int, now: int, ac
     active = "ACTIVE" if active_win == win else "inactive"
     print(f"{label:<8} window {window_label}   {active}")
 
-    if common.override_active(now, win):
-        until = int(common.override_until_path(win).read_text().strip())
-        until_hm = datetime.fromtimestamp(until).strftime("%H:%M")
+    override_until = common.read_until_epoch(common.override_until_path(win))
+    if override_until is not None and override_until > now:
+        until_hm = datetime.fromtimestamp(override_until).strftime("%H:%M")
         print(f"         override active until {until_hm}")
     else:
         print("         override: none")

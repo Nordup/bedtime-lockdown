@@ -67,6 +67,48 @@ def test_current_window(hhmm, expected):
     assert common.current_window(hhmm) == expected
 
 
+# ---- read_until_epoch (the shared until-file reader) -------------------
+
+def test_read_until_epoch_missing_file_returns_none(state_home):
+    assert common.read_until_epoch(state_home / "nope") is None
+
+
+def test_read_until_epoch_empty_file_returns_none(state_home):
+    p = state_home / "agent-until"
+    p.write_text("")
+    assert common.read_until_epoch(p) is None
+
+
+def test_read_until_epoch_non_numeric_returns_none(state_home):
+    p = state_home / "agent-until"
+    p.write_text("not-a-number")
+    assert common.read_until_epoch(p) is None
+
+
+def test_read_until_epoch_valid(state_home):
+    p = state_home / "agent-until"
+    p.write_text("1700000060\n")  # trailing newline is stripped
+    assert common.read_until_epoch(p) == 1700000060
+
+
+# ---- agent / enforce path helpers -------------------------------------
+
+def test_agent_until_path(state_home):
+    assert common.agent_until_path() == state_home / "agent-until"
+
+
+def test_agent_log_path(state_home):
+    assert common.agent_log_path() == state_home / "agent.log"
+
+
+def test_agent_inhibit_pid_path(state_home):
+    assert common.agent_inhibit_pid_path() == state_home / "agent-inhibit.pid"
+
+
+def test_enforce_log_path(state_home):
+    assert common.enforce_log_path() == state_home / "enforce.log"
+
+
 # ---- override_until_path / overrides_log_path --------------------------
 
 def test_override_until_path_keeps_historical_filenames(state_home):

@@ -12,10 +12,12 @@ stay in sync with the in-process schedule.
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from xml.sax.saxutils import escape as xml_escape
 
 REPO = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO))
@@ -37,18 +39,26 @@ def _module_name(entry: str) -> str:
 
 
 def _shim_body_posix(lib_dir: Path, module: str) -> str:
+    # PYTHONPATH + -m keeps the path out of any nested string-quoting
+    # layer. shlex.quote handles spaces, quotes, $ in lib_dir safely.
+    # ${PYTHONPATH:+:$PYTHONPATH} preserves any existing PYTHONPATH
+    # without leaving a trailing colon when it's empty.
+    quoted = shlex.quote(str(lib_dir))
     return (
         "#!/bin/sh\n"
-        f"exec python3 -c \"import sys; sys.path.insert(0, '{lib_dir}'); "
-        f"from {module} import main; sys.exit(main())\" \"$@\"\n"
+        f"PYTHONPATH={quoted}${{PYTHONPATH:+:$PYTHONPATH}} "
+        f"exec python3 -m {module} \"$@\"\n"
     )
 
 
 def _shim_body_windows(lib_dir: Path, module: str) -> str:
+    # `set "VAR=..."` form in cmd.exe handles spaces in paths cleanly.
+    # %PYTHONPATH% expands to empty if unset, leaving a trailing semicolon
+    # — harmless for Python's path parser.
     return (
         "@echo off\r\n"
-        f"python -c \"import sys; sys.path.insert(0, r'{lib_dir}'); "
-        f"from {module} import main; sys.exit(main())\" %*\r\n"
+        f"set \"PYTHONPATH={lib_dir};%PYTHONPATH%\"\r\n"
+        f"python -m {module} %*\r\n"
     )
 
 
@@ -229,7 +239,10 @@ def _register_windows_tasks(bin_dir: Path) -> None:
 def _wakeloop_task_xml(enforce_cmd: str) -> str:
     # Event trigger: System / Microsoft-Windows-Power-Troubleshooter /
     # Event ID 1 (logged on every return from low-power state). 5-min
-    # delay matches the Linux monotonic wake-loop.
+    # delay matches the Linux monotonic wake-loop. XML-escape the
+    # command path defensively — real Windows paths rarely contain &/<,
+    # but an escape pass is free insurance.
+    cmd = xml_escape(enforce_cmd)
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers>
@@ -250,7 +263,7 @@ def _wakeloop_task_xml(enforce_cmd: str) -> str:
   </Settings>
   <Actions>
     <Exec>
-      <Command>{enforce_cmd}</Command>
+      <Command>{cmd}</Command>
     </Exec>
   </Actions>
 </Task>

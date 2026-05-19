@@ -47,6 +47,10 @@ if sys.platform == "win32":
     _kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
     _kernel32.CloseHandle.restype = ctypes.c_bool
 
+    # SetThreadExecutionState — held by the detached inhibitor child.
+    _kernel32.SetThreadExecutionState.argtypes = (ctypes.c_uint,)
+    _kernel32.SetThreadExecutionState.restype = ctypes.c_uint
+
     HWND_BROADCAST   = ctypes.c_void_p(0xFFFF)
     WM_SYSCOMMAND    = 0x0112
     SC_MONITORPOWER  = 0xF170
@@ -189,6 +193,10 @@ def _ps_escape(s: str) -> str:
     return _xml_escape(s).replace("'", "''")
 
 
+ES_CONTINUOUS       = 0x80000000
+ES_SYSTEM_REQUIRED  = 0x00000001
+
+
 def hold_execution_state(duration_sec: int) -> None:
     """Internal: invoked by `sleep-agent --internal-inhibit N` in a
     detached child. Sets ES_SYSTEM_REQUIRED + ES_CONTINUOUS, sleeps,
@@ -196,11 +204,6 @@ def hold_execution_state(duration_sec: int) -> None:
     the thread exits."""
     import time as _time
 
-    ES_CONTINUOUS       = 0x80000000
-    ES_SYSTEM_REQUIRED  = 0x00000001
-
-    _kernel32.SetThreadExecutionState.argtypes = (ctypes.c_uint,)
-    _kernel32.SetThreadExecutionState.restype = ctypes.c_uint
     _kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
     try:
         _time.sleep(duration_sec)

@@ -3,13 +3,14 @@ Scheduler (Windows) every 5 min during an active window. All three
 windows share this single code path."""
 
 import sys
+import time
 
 from . import common
 from .config import state_dir
 
 
 def main() -> int:
-    now = int(__import__("time").time())
+    now = int(time.time())
     win = common.current_window(common.current_hhmm())
 
     if win == "none":
@@ -24,8 +25,7 @@ def main() -> int:
         return 0
 
     state_dir().mkdir(parents=True, exist_ok=True)
-    log = common.enforce_log_path()
-    with log.open("a") as f:
+    with common.enforce_log_path().open("a") as f:
         f.write(f"{common.now_iso()}\t{win}\tlocking\n")
 
     from .platforms import backend
