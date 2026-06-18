@@ -58,6 +58,10 @@ def _print_window_block(label: str, win: str, start: int, end: int, now: int, ac
     active = "ACTIVE" if active_win == win else "inactive"
     print(f"{label:<8} window {window_label}   {active}")
 
+    if not common.override_enabled(win):
+        print("         override: disabled (no reprieve at night)")
+        return
+
     override_until = common.read_until_epoch(common.override_until_path(win))
     if override_until is not None and override_until > now:
         until_hm = datetime.fromtimestamp(override_until).strftime("%H:%M")
