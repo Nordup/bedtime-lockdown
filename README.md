@@ -1,34 +1,34 @@
 # Bedtime Lockdown
 
-Cross-platform Python desktop service that locks your screen at three daily windows — bedtime, lunch, exercise+dinner — and keeps re-locking it every five minutes until each window ends, with a deliberately high-friction override path for genuine emergencies and an explicit "agent-mode" escape hatch that blanks the display so long-running background work isn't blocked. Same code, same behavior on Linux and Windows.
+Cross-platform Python desktop service that locks your screen at three daily windows — bedtime, lunch, exercise+dinner — and keeps re-locking it every three minutes until each window ends, with a deliberately high-friction override path for genuine emergencies and an explicit "agent-mode" escape hatch that blanks the display so long-running background work isn't blocked. Same code, same behavior on Linux and Windows.
 
 Built because reminders don't work when you're the kind of person who tells yourself "just five more minutes" at 1am every night — and the same brain skips meals and skips exercise the same way.
 
 ## What it does
 
-Three daily enforcement windows, all on the same code path: lock the screen and re-lock every 5 min until the window ends. No automatic suspend — that broke overnight agent runs, and the screen-lock alone (plus the friction of typing your password every five minutes) carries enough weight in practice.
+Three daily enforcement windows, all on the same code path: lock the screen and re-lock every 3 min until the window ends. No automatic suspend — that broke overnight agent runs, and the screen-lock alone (plus the friction of typing your password every three minutes) carries enough weight in practice.
 
 | Time            | Event                                                       |
 |-----------------|-------------------------------------------------------------|
 | 11:15am         | Notification: "Lunch in 15 minutes."                        |
 | 11:25am         | Notification: "Lunch in 5 minutes."                         |
-| 11:30am – 12:15pm | Screen re-locks every 5 min.                              |
+| 11:30am – 12:15pm | Screen re-locks every 3 min.                              |
 | 4:15pm          | Notification: "Exercise + dinner in 15 minutes."            |
 | 4:25pm          | Notification: "Exercise + dinner in 5 minutes."             |
-| 4:30pm – 6:30pm | Screen re-locks every 5 min.                                |
+| 4:30pm – 6:30pm | Screen re-locks every 3 min.                                |
 | 8:45pm          | Notification: "Bedtime in 15 minutes."                      |
 | 8:55pm          | Notification: "Bedtime in 5 minutes."                       |
-| 9:00pm – 6:00am | Screen re-locks every 5 min.                                |
+| 9:00pm – 6:00am | Screen re-locks every 3 min.                                |
 
-If you have a real emergency inside any window, run `sleep-override` from any terminal. It detects which window is active, asks three deliberately uncomfortable questions, logs your answers, and grants unlock. Bedtime grants one hour; lunch and dinner grant until the end of the current break. One override per window per 12 hours — each window's quota is independent.
+If you have a real emergency inside a **daytime** window (lunch or dinner), run `sleep-override` from any terminal. It detects which window is active, asks three deliberately uncomfortable questions, logs your answers, and grants a reprieve until the end of the current break. One override per window per 12 hours — each window's quota is independent. **Bedtime has no override**: the night lock is non-negotiable, and there is nothing to grant.
 
-If you're stepping away during any window and want the screen physically off (and you want a long-running agent to keep working in the background), run `sleep-agent`. It locks the session, blanks the display, and spawns a backgrounded inhibitor that holds idle-suspend off until the current window ends. The re-lock loop also defers while agent-mode is active, so coming back is just one password prompt. Mouse or keyboard wakes the display back to the lock screen. Works the same in all three windows. Logged to `agent.log`.
+If you're stepping away during any window and want the screen physically off (and you want a long-running agent to keep working in the background), run `sleep-agent`. It locks the session, blanks the display, and spawns a backgrounded inhibitor that holds idle-suspend off until the current window ends. The re-lock loop also defers while agent-mode is active, so coming back is just one password prompt. Mouse or keyboard wakes the display back to the lock screen — run `sleep-agent` again to put it back to sleep: while agent-mode is already active a re-run re-locks and re-blanks (and revives the inhibitor if its process died) without ever shortening the deadline. Works the same in all three windows. Logged to `agent.log`.
 
 ## Why
 
 Most "focus" tools block websites or apps. None of them lock the screen at scheduled times — or even force you to step away from it during meals. Cold Turkey's *Frozen Turkey* mode is the closest match conceptually for the bedtime piece, and it's the inspiration for this project — a free, scriptable equivalent that works on both Linux and Windows from one Python codebase.
 
-The override is the design's interesting part. Pure bedtime locks tend to fail in two failure modes: (a) too easy to override → user uses it every night and it changes nothing, (b) too hard to override → user disables the whole system on the first stressful night. The three-question form is calibrated to be slow enough that addiction-brain takes the path of least resistance and goes to bed, while still giving you a way out if there's an actual fire.
+The override is the design's interesting part. Friction locks tend to fail in two ways: (a) too easy to override → you use it every night and it changes nothing, (b) too hard to override → you disable the whole system on the first stressful night. The daytime breaks (lunch, dinner) thread that needle with a three-question form, calibrated to be slow enough that addiction-brain takes the path of least resistance and steps away, while still giving you a way out if there's an actual fire. Bedtime takes the harder line: no override at all. After enough nights of bargaining with the old one-hour reprieve, the only honest fix was to remove the bargaining chip — the night lock is non-negotiable, and the sole remaining escape is the deliberate act of stopping the scheduler.
 
 ## Requirements
 
@@ -67,7 +67,7 @@ Both bootstrappers just exec `python3 install.py` / `python install.py` — the 
 After install, open a new terminal and five commands are available on either OS:
 
 - `sleep-status` — show all three windows, agent-mode state, last 5 enforce events, last 5 overrides.
-- `sleep-override` — interactive 3-question CLI. Detects the active window automatically.
+- `sleep-override` — interactive 3-question CLI for the daytime windows (lunch, dinner). Detects the active window automatically. Refuses during bedtime — the night lock has no override.
 - `sleep-agent` — one-shot: lock, blank the display, inhibit idle-suspend until the current window ends. No questions, no cooldown — designed for routine "stepping away with an agent running" use, multiple times per day.
 - `sleep-warn` and `sleep-enforce` exist but you don't run them manually; the scheduler does.
 
@@ -82,9 +82,11 @@ LUNCH_START_HHMM    = 1130          # lunch break starts
 LUNCH_END_HHMM      = 1215          # lunch break ends
 DINNER_START_HHMM   = 1630          # exercise+dinner starts
 DINNER_END_HHMM     = 1830          # exercise+dinner ends
-OVERRIDE_DURATION_SEC = 3600         # bedtime override: 1 hour reprieve
 COOLDOWN_SEC          = 12 * 3600    # one override per 12h, per window
+OVERRIDE_ENABLED_WINDOWS = ("lunch", "dinner")  # bedtime has no override
 ```
+
+The re-lock cadence (every 3 minutes) is not in `config.py` — on Linux it lives in the systemd enforce timer, and on Windows in the Task Scheduler trigger that `install.py` writes. Change it there, then reinstall.
 
 Then re-run `install.sh` / `install.ps1`. On Linux, the systemd calendar timers' `OnCalendar=` lines are hardcoded — if you change a `*_START_HHMM`, edit the matching three units by hand (see comments in `config.py`) and run `systemctl --user daemon-reload`. On Windows, the Task Scheduler triggers are regenerated from `config.py` automatically on every `install.py` run.
 
@@ -123,11 +125,11 @@ sleep_lockdown/
 3. If an override is active for the current window, exit silently.
 4. Otherwise: log the attempt with the window name, lock the session.
 
-All three windows share this single code path. On **Linux** the lock is `loginctl lock-session` (via subprocess); the wake-loop is systemd's monotonic `sleep-enforce.timer` (`OnUnitInactiveSec=5min`) plus three calendar timers (one per window) that phase-align the first fire to the window start. The service is `Type=oneshot`, so if calendar + monotonic both fire close together systemd silently skips the second activation. On **Windows** the lock is `user32.LockWorkStation()` (via ctypes); the wake-loop is a Task Scheduler event trigger on `Microsoft-Windows-Power-Troubleshooter` Event ID 1 (logged on every resume from low-power state) with a 5-minute delay. Task Scheduler's `MultipleInstancesPolicy=IgnoreNew` plays the role of `Type=oneshot`.
+All three windows share this single code path. On **Linux** the lock is `loginctl lock-session` (via subprocess); the wake-loop is systemd's monotonic `sleep-enforce.timer` (`OnUnitInactiveSec=3min`) plus three calendar timers (one per window) that phase-align the first fire to the window start. The service is `Type=oneshot`, so if calendar + monotonic both fire close together systemd silently skips the second activation. On **Windows** the lock is `user32.LockWorkStation()` (via ctypes); the wake-loop is a Task Scheduler event trigger on `Microsoft-Windows-Power-Troubleshooter` Event ID 1 (logged on every resume from low-power state) with a 3-minute delay. Task Scheduler's `MultipleInstancesPolicy=IgnoreNew` plays the role of `Type=oneshot`.
 
-`sleep-override` is intentionally slow. It detects which window is active, asks three questions tailored to that window — what are you doing, why is *this* break the wrong time to step away (or, for bedtime, why tonight and not tomorrow morning), what time will you actually stop. Empty answers are rejected. Answers go into a per-window log (`overrides.log`, `overrides-lunch.log`, `overrides-dinner.log`). Bedtime grants `now+1h` and writes `override-until`; breaks grant until end of the current window and write `override-until-lunch` or `override-until-dinner`. Enforce reads only the file matching the current window, so skipping lunch never affects bedtime. Single-writer guard is `fcntl.flock` on Linux, `msvcrt.locking` on Windows — same role: prevent two concurrent invocations from both passing the cooldown check and double-appending to the log.
+`sleep-override` is intentionally slow. It detects which window is active, asks three questions tailored to that window — what are you doing, why is *this* break the wrong time to step away, what time will you actually stop. Empty answers are rejected. Answers go into a per-window log (`overrides.log`, `overrides-lunch.log`, `overrides-dinner.log`). Lunch and dinner grant until end of the current window and write `override-until-lunch` or `override-until-dinner`; bedtime is refused before any questions (`OVERRIDE_ENABLED_WINDOWS` excludes it), so enforce honors no bedtime reprieve. Enforce reads only the file matching the current window, so skipping lunch never affects dinner. Single-writer guard is `fcntl.flock` on Linux, `msvcrt.locking` on Windows — same role: prevent two concurrent invocations from both passing the cooldown check and double-appending to the log.
 
-`sleep-agent` is the routine-friction counterpart. Inside any active window, one command flips the machine into agent-mode: locks the session, blanks the display, spawns a detached backgrounded inhibitor that holds idle-sleep blocked until the window ends and then exits on its own. It writes `agent-until` (the window-end epoch) so `sleep-enforce` skips its lock loop, and `agent-inhibit.pid` so a re-run can clean up any leftover inhibitor. One line per use lands in `agent.log`. No questions, no cooldown — designed for 3x/day routine ("walking away during lunch, an agent is running"), not for justifying rule-breaks.
+`sleep-agent` is the routine-friction counterpart. Inside any active window, one command flips the machine into agent-mode: locks the session, blanks the display, spawns a detached backgrounded inhibitor that holds idle-sleep blocked until the window ends and then exits on its own. It writes `agent-until` (the window-end epoch) so `sleep-enforce` skips its lock loop, and `agent-inhibit.pid` so a re-run can find and revive a dead inhibitor. Re-running while agent-mode is already active doesn't start a fresh session — it re-asserts the lock and display-blank and respawns the inhibitor only if its pinned process has died, leaving `agent-until` untouched (re-enabling can only strengthen enforcement, never shorten it). One line per use lands in `agent.log`. No questions, no cooldown — designed for 3x/day routine ("walking away during lunch, an agent is running"), not for justifying rule-breaks.
 
 The display-blank and inhibitor primitives differ per OS:
 
@@ -138,7 +140,7 @@ Wake-on-input is free on both OSes: the OS routes keyboard/mouse events to the c
 
 ## Anti-cheat philosophy
 
-This is not tamper-proof. You are root / administrator on your own machine. If you really want to disable it at 8:55pm, `systemctl --user stop sleep-enforce.timer` (Linux) or `schtasks /Change /TN \BedtimeLockdown\enforce-bedtime /DISABLE` (Windows) works. The system relies on the override being faster and lower-shame than disabling — addiction-brain takes the path of least resistance, and the override path is paved while the disable path requires a deliberate moral act. Calibrate the override friction up if you find yourself bypassing too easily; calibrate it down if you find yourself disabling.
+This is not tamper-proof. You are root / administrator on your own machine. If you really want to disable it at 8:55pm, `systemctl --user stop sleep-enforce.timer` (Linux) or `schtasks /Change /TN \BedtimeLockdown\enforce-bedtime /DISABLE` (Windows) works. For the daytime breaks the system relies on the override being faster and lower-shame than disabling — addiction-brain takes the path of least resistance, and the override path is paved while the disable path requires a deliberate moral act. Bedtime removes even that paved path: with no override, the only ways through the night are agent-mode (a deliberate, logged step-away that keeps the screen locked) or stopping the scheduler outright (the moral act). Calibrate the daytime override friction up if you find yourself bypassing too easily; calibrate it down if you find yourself disabling.
 
 ## Caveats
 
@@ -157,7 +159,7 @@ pip install pytest        # or pip install -e .[test]
 pytest tests/
 ```
 
-60 tests covering window detection across all three windows, per-window override and cooldown isolation, `agent_mode_active` semantics, `window_end_epoch` resolution including the bedtime midnight roll, malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log last-entry-wins, and corrupted-timestamp fail-closed behavior.
+70 tests covering window detection across all three windows, the override policy (bedtime disabled, lunch/dinner enabled), per-window override and cooldown isolation, `agent_mode_active` semantics, `window_end_epoch` resolution including the bedtime midnight roll, malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log last-entry-wins, and corrupted-timestamp fail-closed behavior.
 
 ## Related projects
 
