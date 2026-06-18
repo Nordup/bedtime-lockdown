@@ -35,6 +35,11 @@ DINNER_END_HHMM     = 1830          # exercise+dinner ends 18:30
 OVERRIDE_DURATION_SEC = 3600         # bedtime override: 1 hour reprieve
 COOLDOWN_SEC          = 12 * 3600    # one override per 12 hours, per window
 
+# Windows that permit an override. Bedtime is deliberately excluded — the
+# night lock is non-negotiable. Single source of truth for the override
+# policy; consumed by common.override_enabled().
+OVERRIDE_ENABLED_WINDOWS = ("lunch", "dinner")
+
 
 def state_dir() -> Path:
     """Runtime state location.

@@ -137,8 +137,11 @@ def test_override_active_missing_file(state_home):
 
 
 def test_override_active_until_greater_than_now(state_home):
-    (state_home / "override-until").write_text("1700000060")
-    assert common.override_active(1700000000, "bedtime")
+    # Repointed to lunch: bedtime no longer honors any reprieve, so the
+    # "future until-file activates an override" path is tested on a window
+    # that still permits overrides.
+    (state_home / "override-until-lunch").write_text("1700000060")
+    assert common.override_active(1700000000, "lunch")
 
 
 def test_override_active_until_equal_to_now_is_false(state_home):
@@ -168,6 +171,18 @@ def test_override_active_dinner_does_not_leak_to_lunch(state_home):
     (state_home / "override-until-dinner").write_text("1700000060")
     assert not common.override_active(1700000000, "lunch")
     assert common.override_active(1700000000, "dinner")
+
+
+def test_override_enabled():
+    assert common.override_enabled("lunch")
+    assert common.override_enabled("dinner")
+    assert not common.override_enabled("bedtime")
+
+
+def test_override_active_bedtime_disabled_even_with_fresh_file(state_home):
+    # Night is non-negotiable: a valid, future-dated reprieve file is ignored.
+    (state_home / "override-until").write_text("1700000060")
+    assert not common.override_active(1700000000, "bedtime")
 
 
 # ---- cooldown_remaining ------------------------------------------------

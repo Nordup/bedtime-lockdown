@@ -20,6 +20,7 @@ from .config import (
     LOCKDOWN_START_HHMM,
     LUNCH_END_HHMM,
     LUNCH_START_HHMM,
+    OVERRIDE_ENABLED_WINDOWS,
     state_dir,
 )
 
@@ -127,9 +128,20 @@ def read_until_epoch(path: Path) -> Optional[int]:
     return int(raw)
 
 
+def override_enabled(window: str) -> bool:
+    """Whether a window permits an override at all. Bedtime does not — the
+    night lock is non-negotiable. Source of truth: OVERRIDE_ENABLED_WINDOWS."""
+    return window in OVERRIDE_ENABLED_WINDOWS
+
+
 def override_active(now_epoch: Optional[int] = None, window: str = "bedtime") -> bool:
-    """Per-window override active iff override-until file exists and contains
-    a numeric epoch strictly greater than now."""
+    """Per-window override active iff the window permits overrides AND its
+    override-until file exists with a numeric epoch strictly greater than now.
+
+    Windows without overrides (bedtime) always return False, ignoring any
+    stale or hand-written until-file — fail-safe toward locking."""
+    if not override_enabled(window):
+        return False
     if now_epoch is None:
         now_epoch = int(time.time())
     until = read_until_epoch(override_until_path(window))
