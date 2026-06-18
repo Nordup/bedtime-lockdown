@@ -32,7 +32,6 @@ LUNCH_END_HHMM      = 1215          # lunch break ends 12:15
 DINNER_START_HHMM   = 1630          # exercise+dinner starts 16:30
 DINNER_END_HHMM     = 1830          # exercise+dinner ends 18:30
 
-OVERRIDE_DURATION_SEC = 3600         # bedtime override: 1 hour reprieve
 COOLDOWN_SEC          = 12 * 3600    # one override per 12 hours, per window
 
 # Windows that permit an override. Bedtime is deliberately excluded — the

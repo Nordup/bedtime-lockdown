@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 
 from . import common
-from .config import COOLDOWN_SEC, OVERRIDE_DURATION_SEC, state_dir
+from .config import state_dir
 from .platforms import backend
 
 
@@ -31,6 +31,14 @@ def main() -> int:
         print(
             "No active enforcement window right now. Override is only useful "
             "inside a lock window.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not common.override_enabled(win):
+        print(
+            "Override is disabled during the night. The bedtime lock is "
+            "non-negotiable — there is no reprieve to grant. Go to sleep.",
             file=sys.stderr,
         )
         return 1
@@ -59,7 +67,6 @@ def _run(now: int, win: str) -> int:
         return 1
 
     questions = {
-        "bedtime": "Why tonight specifically, and not tomorrow morning?",
         "lunch":   "Why is this lunch break the wrong time to step away?",
         "dinner":  "Why is this exercise + dinner break the wrong time to step away?",
     }
@@ -69,13 +76,12 @@ def _run(now: int, win: str) -> int:
     a2 = _read_nonempty(q2)
     a3 = _read_nonempty("What time will you actually stop?")
 
-    # Bedtime grants a fixed 1h reprieve; breaks grant until end of
-    # the current window (the lock is gentle enough that end-of-window
-    # is the right unit).
-    if win == "bedtime":
-        expires = now + OVERRIDE_DURATION_SEC
-    else:
-        expires = common.window_end_epoch(win, now)
+    # Only override-enabled windows (lunch, dinner) reach here — bedtime is
+    # refused upstream in main(). Both grant a reprieve until end-of-window.
+    # NOTE: if bedtime were ever re-added to OVERRIDE_ENABLED_WINDOWS it would
+    # need a *bounded* duration here — window_end_epoch("bedtime") resolves to
+    # 06:00, which would wrongly grant a reprieve until morning.
+    expires = common.window_end_epoch(win, now)
 
     log_path = common.overrides_log_path(win)
     with log_path.open("a") as f:
@@ -84,10 +90,7 @@ def _run(now: int, win: str) -> int:
     common.override_until_path(win).write_text(str(expires))
 
     expires_hm = datetime.fromtimestamp(expires).strftime("%H:%M")
-    if win == "bedtime":
-        print(f"Override granted until {expires_hm}. Sleep well.")
-    else:
-        print(f"Override granted for {win} until {expires_hm}.")
+    print(f"Override granted for {win} until {expires_hm}.")
     return 0
 
 
