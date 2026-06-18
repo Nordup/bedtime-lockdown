@@ -1,20 +1,20 @@
 [Unit]
-Description=Bedtime enforce timer (every 5 min; the service is window-gated and a no-op outside 21:00-06:00)
+Description=Bedtime enforce timer (every 3 min; the service is window-gated and a no-op outside 21:00-06:00)
 
 [Timer]
 # Monotonic timer pair, not OnCalendar. The wake-loop semantics we want
-# are "5 minutes after the user wakes the machine" — measured from the
+# are "3 minutes after the user wakes the machine" — measured from the
 # moment of resume, not from an absolute clock mark. Because the script
 # blocks on `systemctl suspend` until the kernel resumes, the service
 # stays active for the entire suspend duration and only deactivates on
-# resume. OnUnitInactiveSec=5min therefore schedules the next fire for
-# exactly resume_time + 5min.
+# resume. OnUnitInactiveSec=3min therefore schedules the next fire for
+# exactly resume_time + 3min.
 #
-# OnActiveSec=5min gives the first fire 5 min after the timer is
+# OnActiveSec=3min gives the first fire 3 min after the timer is
 # enabled (initial bootstrap). After that, OnUnitInactiveSec drives the
-# cadence: 5 min between every service end and the next fire.
-OnActiveSec=5min
-OnUnitInactiveSec=5min
+# cadence: 3 min between every service end and the next fire.
+OnActiveSec=3min
+OnUnitInactiveSec=3min
 Unit=sleep-enforce.service
 
 [Install]

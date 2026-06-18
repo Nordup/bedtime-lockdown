@@ -19,6 +19,11 @@ to push the new triggers, or edit them by hand:
 
 *_END_HHMM values are used only by window checks in this module; no
 unit refers to them.
+
+RE-LOCK CADENCE: the every-3-minutes re-lock interval is likewise not
+readable from here. On Linux it lives in systemd/sleep-enforce.timer
+(OnActiveSec / OnUnitInactiveSec); on Windows it's the Task Scheduler
+trigger <Delay> that install.py writes. Change both to change the cadence.
 """
 
 import os

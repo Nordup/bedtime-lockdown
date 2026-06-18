@@ -223,7 +223,7 @@ def _register_windows_tasks(bin_dir: Path) -> None:
             check=True,
         )
 
-    # Wake-loop on resume — fires sleep-enforce 5 min after every
+    # Wake-loop on resume — fires sleep-enforce 3 min after every
     # power-state resume event. Replicates the Linux monotonic timer.
     wakeloop_xml = _wakeloop_task_xml(enforce_cmd)
     xml_path = bin_dir / "wakeloop.xml"
@@ -238,7 +238,7 @@ def _register_windows_tasks(bin_dir: Path) -> None:
 
 def _wakeloop_task_xml(enforce_cmd: str) -> str:
     # Event trigger: System / Microsoft-Windows-Power-Troubleshooter /
-    # Event ID 1 (logged on every return from low-power state). 5-min
+    # Event ID 1 (logged on every return from low-power state). 3-min
     # delay matches the Linux monotonic wake-loop. XML-escape the
     # command path defensively — real Windows paths rarely contain &/<,
     # but an escape pass is free insurance.
@@ -248,7 +248,7 @@ def _wakeloop_task_xml(enforce_cmd: str) -> str:
   <Triggers>
     <EventTrigger>
       <Enabled>true</Enabled>
-      <Delay>PT5M</Delay>
+      <Delay>PT3M</Delay>
       <Subscription>
 &lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;
 *[System[Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1]]
