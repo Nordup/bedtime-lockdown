@@ -1,5 +1,5 @@
 """sleep-enforce: the locker. Run by systemd timers (Linux) or Task
-Scheduler (Windows) every 5 min during an active window. All three
+Scheduler (Windows) every 3 min during an active window. All three
 windows share this single code path."""
 
 import sys
@@ -10,6 +10,17 @@ from .config import state_dir
 
 
 def main() -> int:
+    # Enforcement gate — first match wins:
+    #
+    #   in a window?
+    #     none ─────────────────────► exit, no-op         (most fires land here)
+    #     bedtime / lunch / dinner
+    #          │
+    #          ├─ agent-mode active? ─yes─► exit           (screen already blanked)
+    #          │
+    #          ├─ override active?   ─yes─► exit           (daytime reprieve only;
+    #          │                                            bedtime never qualifies)
+    #          └─ else ────────────────────► log + lock the session
     now = int(time.time())
     win = common.current_window(common.current_hhmm())
 

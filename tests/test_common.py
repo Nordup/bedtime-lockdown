@@ -133,7 +133,7 @@ def test_overrides_log_path(state_home):
 # ---- override_active ---------------------------------------------------
 
 def test_override_active_missing_file(state_home):
-    assert not common.override_active(1700000000, "bedtime")
+    assert not common.override_active(1700000000, "lunch")
 
 
 def test_override_active_until_greater_than_now(state_home):
@@ -146,18 +146,18 @@ def test_override_active_until_greater_than_now(state_home):
 
 def test_override_active_until_equal_to_now_is_false(state_home):
     # Strict > semantics — equal means expired this second.
-    (state_home / "override-until").write_text("1700000000")
-    assert not common.override_active(1700000000, "bedtime")
+    (state_home / "override-until-lunch").write_text("1700000000")
+    assert not common.override_active(1700000000, "lunch")
 
 
 def test_override_active_empty_file(state_home):
-    (state_home / "override-until").write_text("")
-    assert not common.override_active(1700000000, "bedtime")
+    (state_home / "override-until-lunch").write_text("")
+    assert not common.override_active(1700000000, "lunch")
 
 
 def test_override_active_non_numeric_garbage(state_home):
-    (state_home / "override-until").write_text("not-a-number")
-    assert not common.override_active(1700000000, "bedtime")
+    (state_home / "override-until-lunch").write_text("not-a-number")
+    assert not common.override_active(1700000000, "lunch")
 
 
 def test_override_active_per_window_isolation(state_home):
