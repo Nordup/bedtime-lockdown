@@ -40,10 +40,14 @@ if sys.platform == "win32":
     )
     _user32.SendMessageW.restype = ctypes.c_ssize_t
 
-    # OpenProcess/TerminateProcess for kill_pid.
+    # OpenProcess/TerminateProcess for kill_pid; WaitForSingleObject for
+    # pid_alive (probing whether the inhibitor child is still running).
+    _kernel32.OpenProcess.argtypes = (ctypes.c_uint, ctypes.c_bool, ctypes.c_uint)
     _kernel32.OpenProcess.restype = ctypes.c_void_p
     _kernel32.TerminateProcess.argtypes = (ctypes.c_void_p, ctypes.c_uint)
     _kernel32.TerminateProcess.restype = ctypes.c_bool
+    _kernel32.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+    _kernel32.WaitForSingleObject.restype = ctypes.c_uint
     _kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
     _kernel32.CloseHandle.restype = ctypes.c_bool
 
@@ -56,6 +60,8 @@ if sys.platform == "win32":
     SC_MONITORPOWER  = 0xF170
     MONITOR_OFF      = 2
     PROCESS_TERMINATE = 0x0001
+    SYNCHRONIZE       = 0x00100000
+    WAIT_TIMEOUT      = 0x00000102  # handle still signalled => process alive
 
 
 class WindowsBackend(PlatformBackend):
@@ -148,6 +154,18 @@ class WindowsBackend(PlatformBackend):
             return
         try:
             _kernel32.TerminateProcess(h, 0)
+        finally:
+            _kernel32.CloseHandle(h)
+
+    def pid_alive(self, pid: int) -> bool:
+        # SYNCHRONIZE is enough to wait on the handle. A zero-timeout wait
+        # returns WAIT_TIMEOUT while the process runs and WAIT_OBJECT_0 (0)
+        # once it has exited. A null handle means it's already gone.
+        h = _kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+        if not h:
+            return False
+        try:
+            return _kernel32.WaitForSingleObject(h, 0) == WAIT_TIMEOUT
         finally:
             _kernel32.CloseHandle(h)
 

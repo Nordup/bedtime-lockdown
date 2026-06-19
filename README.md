@@ -1,6 +1,6 @@
 # Bedtime Lockdown
 
-Cross-platform Python desktop service that locks your screen at three daily windows — bedtime, lunch, exercise+dinner — and keeps re-locking it every three minutes until each window ends, with a deliberately high-friction override path for genuine emergencies and an explicit "agent-mode" escape hatch that blanks the display so long-running background work isn't blocked. Same code, same behavior on Linux and Windows.
+Cross-platform Python desktop service that locks your screen at three daily windows — bedtime, lunch, exercise+dinner — and keeps re-locking it every three minutes until each window ends, with a deliberately high-friction override path for genuine emergencies and an explicit "agent-mode" escape hatch so long-running background work isn't blocked. Same code, same behavior on Linux and Windows.
 
 Built because reminders don't work when you're the kind of person who tells yourself "just five more minutes" at 1am every night — and the same brain skips meals and skips exercise the same way.
 
@@ -22,7 +22,9 @@ Three daily enforcement windows, all on the same code path: lock the screen and 
 
 If you have a real emergency inside a **daytime** window (lunch or dinner), run `sleep-override` from any terminal. It detects which window is active, asks three deliberately uncomfortable questions, logs your answers, and grants a reprieve until the end of the current break. One override per window per 12 hours — each window's quota is independent. **Bedtime has no override**: the night lock is non-negotiable, and there is nothing to grant.
 
-If you're stepping away during any window and want the screen physically off (and you want a long-running agent to keep working in the background), run `sleep-agent`. It locks the session, blanks the display, and spawns a backgrounded inhibitor that holds idle-suspend off until the current window ends. The re-lock loop also defers while agent-mode is active, so coming back is just one password prompt. Mouse or keyboard wakes the display back to the lock screen — run `sleep-agent` again to put it back to sleep: while agent-mode is already active a re-run re-locks and re-blanks (and revives the inhibitor if its process died) without ever shortening the deadline. Works the same in all three windows. Logged to `agent.log`.
+If you're stepping away during any window and want a long-running agent to keep working in the background, run `sleep-agent`. It locks the session and spawns a backgrounded inhibitor that holds idle-suspend off until the current window ends. The re-lock loop also defers while agent-mode is active, so coming back is just one password prompt. Run `sleep-agent` again any time to re-assert it — while agent-mode is already active a re-run re-locks the session and revives the inhibitor if its process died, without ever shortening the deadline. Works the same in all three windows. Logged to `agent.log`.
+
+> **Display blank — platform note.** On **Windows**, agent-mode also turns the monitor off (and a keypress wakes it). On **Linux** it's currently **lock-only**: GNOME 50 removed the D-Bus method this tool used to power the display off on demand, and the alternatives (e.g. a DDC/CI power-off) can't be woken by a keypress — some monitors need a physical power-cycle — so the screen locks and the PC stays awake but the display stays lit. Reviving an on-demand, wake-on-input blank for KDE/sway/X11 is on the roadmap.
 
 ## Why
 
@@ -33,7 +35,7 @@ The override is the design's interesting part. Friction locks tend to fail in tw
 ## Requirements
 
 - **Python 3.9 or newer.** Pre-installed on most Linux distros; on Windows install from python.org or the Microsoft Store.
-- **Linux:** a systemd-based desktop, `notify-send` (libnotify), a graphical session that responds to `loginctl lock-session`. For `sleep-agent`'s display-blank step: GNOME (Mutter) — other DEs warn and continue.
+- **Linux:** a systemd-based desktop, `notify-send` (libnotify), a graphical session that responds to `loginctl lock-session`. `sleep-agent` is lock-only on Linux (no on-demand display blank — GNOME 50 removed the API; see the platform note above).
 - **Windows:** Windows 10 or 11. PowerShell 5.1 (ships by default) for the toast notification fallback. Optional: `pip install sleep-lockdown[windows]` pulls `winrt-Windows.UI.Notifications` for native toasts instead of subprocess-to-PowerShell.
 
 Tested on Manjaro + GNOME on Wayland and on Windows 11. No third-party Python dependencies on Linux. ctypes-only on Windows for the lock/blank/inhibit primitives.
@@ -68,7 +70,7 @@ After install, open a new terminal and five commands are available on either OS:
 
 - `sleep-status` — show all three windows, agent-mode state, last 5 enforce events, last 5 overrides.
 - `sleep-override` — interactive 3-question CLI for the daytime windows (lunch, dinner). Detects the active window automatically. Refuses during bedtime — the night lock has no override.
-- `sleep-agent` — one-shot: lock, blank the display, inhibit idle-suspend until the current window ends. No questions, no cooldown — designed for routine "stepping away with an agent running" use, multiple times per day.
+- `sleep-agent` — one-shot: lock the screen and inhibit idle-suspend until the current window ends (also turns the display off on Windows; lock-only on Linux). No questions, no cooldown — designed for routine "stepping away with an agent running" use, multiple times per day.
 - `sleep-warn` and `sleep-enforce` exist but you don't run them manually; the scheduler does.
 
 ## Customize the schedule
@@ -110,7 +112,7 @@ sleep_lockdown/
   enforce.py            the locker; main() invoked by systemd / Task Scheduler
   warn.py               notification wrapper
   override.py           interactive friction CLI (window-aware)
-  agent.py              agent-mode: lock + blank + inhibit until window-end
+  agent.py              agent-mode: lock + inhibit until window-end (+ blank on Windows)
   status.py             read-only diagnostic
   platforms/
     base.py             abstract backend interface
@@ -121,7 +123,7 @@ sleep_lockdown/
 `sleep-enforce` is the heart. Each invocation:
 
 1. Detect the current window (`bedtime` / `lunch` / `dinner` / `none`). If `none`, exit silently — most fires hit this branch.
-2. If agent-mode is active, exit silently — `sleep-agent` has the screen blanked and idle-suspend inhibited.
+2. If agent-mode is active, exit silently — `sleep-agent` has the session locked and idle-suspend inhibited.
 3. If an override is active for the current window, exit silently.
 4. Otherwise: log the attempt with the window name, lock the session.
 
@@ -129,11 +131,11 @@ All three windows share this single code path. On **Linux** the lock is `loginct
 
 `sleep-override` is intentionally slow. It detects which window is active, asks three questions tailored to that window — what are you doing, why is *this* break the wrong time to step away, what time will you actually stop. Empty answers are rejected. Answers go into a per-window log (`overrides.log`, `overrides-lunch.log`, `overrides-dinner.log`). Lunch and dinner grant until end of the current window and write `override-until-lunch` or `override-until-dinner`; bedtime is refused before any questions (`OVERRIDE_ENABLED_WINDOWS` excludes it), so enforce honors no bedtime reprieve. Enforce reads only the file matching the current window, so skipping lunch never affects dinner. Single-writer guard is `fcntl.flock` on Linux, `msvcrt.locking` on Windows — same role: prevent two concurrent invocations from both passing the cooldown check and double-appending to the log.
 
-`sleep-agent` is the routine-friction counterpart. Inside any active window, one command flips the machine into agent-mode: locks the session, blanks the display, spawns a detached backgrounded inhibitor that holds idle-sleep blocked until the window ends and then exits on its own. It writes `agent-until` (the window-end epoch) so `sleep-enforce` skips its lock loop, and `agent-inhibit.pid` so a re-run can find and revive a dead inhibitor. Re-running while agent-mode is already active doesn't start a fresh session — it re-asserts the lock and display-blank and respawns the inhibitor only if its pinned process has died, leaving `agent-until` untouched (re-enabling can only strengthen enforcement, never shorten it). One line per use lands in `agent.log`. No questions, no cooldown — designed for 3x/day routine ("walking away during lunch, an agent is running"), not for justifying rule-breaks.
+`sleep-agent` is the routine-friction counterpart. Inside any active window, one command flips the machine into agent-mode: locks the session and spawns a detached backgrounded inhibitor that holds idle-sleep blocked until the window ends and then exits on its own (on Windows it also turns the display off). It writes `agent-until` (the window-end epoch) so `sleep-enforce` skips its lock loop, and `agent-inhibit.pid` so a re-run can find and revive a dead inhibitor. Re-running while agent-mode is already active doesn't start a fresh session — it re-asserts the lock and respawns the inhibitor only if its pinned process has died, leaving `agent-until` untouched (re-enabling can only strengthen enforcement, never shorten it). One line per use lands in `agent.log`. No questions, no cooldown — designed for 3x/day routine ("walking away during lunch, an agent is running"), not for justifying rule-breaks.
 
-The display-blank and inhibitor primitives differ per OS:
+The inhibitor primitive differs per OS (and Windows adds a display blank Linux no longer has):
 
-- **Linux:** display blank via Mutter's `org.gnome.Mutter.DisplayConfig.SetPowerSaveMode` D-Bus method (level 3 = off), invoked via `gdbus` subprocess. Inhibitor via `systemd-inhibit --what=idle:sleep --mode=block sleep <duration>` as a detached child — systemd-logind holds the inhibitor for the lifetime of that child, and the `sleep` self-terminates at window-end.
+- **Linux:** lock-only — no display blank. GNOME 50 removed `org.gnome.Mutter.DisplayConfig.SetPowerSaveMode` (the only on-demand display-off method), and a DDC/CI power-off can't be woken by a keypress, so agent-mode leaves the monitor lit. Inhibitor via `systemd-inhibit --what=idle:sleep --mode=block sleep <duration>` as a detached child — systemd-logind holds the inhibitor for the lifetime of that child, and the `sleep` self-terminates at window-end.
 - **Windows:** display blank via `SendMessageW(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, 2)` (ctypes user32). Inhibitor via a detached Python child process that holds `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)` (ctypes kernel32) and `time.sleep`s for the duration. Same shape as the Linux model.
 
 Wake-on-input is free on both OSes: the OS routes keyboard/mouse events to the compositor / window manager, which immediately powers the display back on. No extra code.
@@ -145,7 +147,7 @@ This is not tamper-proof. You are root / administrator on your own machine. If y
 ## Caveats
 
 - **Screen locking depends on your DE / WM** correctly handling `loginctl lock-session` (Linux) or `LockWorkStation` (Windows). Both are widely supported.
-- **`sleep-agent`'s display blank is GNOME-specific on Linux.** It calls Mutter's `DisplayConfig` D-Bus interface. On other DEs the script warns and continues — lock + inhibitor still apply, but the screen won't go dark explicitly. Equivalent calls for KDE/XFCE/sway are TODO.
+- **`sleep-agent` is lock-only on Linux.** GNOME 50 removed the `DisplayConfig.SetPowerSaveMode` method it used to turn the display off, so the screen locks and the PC stays awake but the monitor stays lit. (A DDC/CI power-off via `ddcutil` does darken the screen, but on real panels it can't be woken by a keypress — some need a physical power-cycle — so it's unsuitable.) KDE/sway/X11 display-off paths that also wake on input are TODO. Windows still blanks the display normally.
 - **`sleep-enforce` does not suspend the machine.** Earlier versions hard-suspended at bedtime; that broke overnight agent runs. The lock loop carries the weight now, with `sleep-agent` as the explicit "step away" command.
 - **Toast notifications on Windows** use `Windows.UI.Notifications` via either the `winrt` Python package (if installed) or a subprocess to PowerShell as fallback. If you've disabled toasts globally or set Focus Assist to suppress non-priority apps, you won't see the warnings — the lock loop still fires.
 - **PowerShell PATH update on Windows** is via `setx`-style write of the user environment, which only affects new processes. Open a new terminal after install.
@@ -159,7 +161,7 @@ pip install pytest        # or pip install -e .[test]
 pytest tests/
 ```
 
-70 tests covering window detection across all three windows, the override policy (bedtime disabled, lunch/dinner enabled), per-window override and cooldown isolation, `agent_mode_active` semantics, `window_end_epoch` resolution including the bedtime midnight roll, malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log last-entry-wins, and corrupted-timestamp fail-closed behavior.
+76 tests covering window detection across all three windows, the override policy (bedtime disabled, lunch/dinner enabled), per-window override and cooldown isolation, `agent_mode_active` semantics, agent-mode re-assert (re-lock, dead-inhibitor revival, deadline never shortened, lock-only messaging), `window_end_epoch` resolution including the bedtime midnight roll, malformed input, empty file, garbage content, exact 12-hour boundary, multi-line log last-entry-wins, and corrupted-timestamp fail-closed behavior.
 
 ## Related projects
 
@@ -192,7 +194,7 @@ The specific combination of *scheduled multi-window screen lock + friction overr
 
 ## TODO
 
-- **Non-GNOME `sleep-agent` display blank on Linux.** The current implementation calls Mutter's `DisplayConfig` D-Bus interface, so only GNOME blanks the display explicitly. KDE has a similar interface (`org.kde.KWin`), sway/Wayland compositors expose `wlr-output-power-management`, and X11 supports `xset dpms force off`. Detect and dispatch in `platforms/linux.py`.
+- **Linux display blank (any DE).** GNOME 50 removed the `DisplayConfig.SetPowerSaveMode` method the tool relied on, so Linux is currently lock-only. KDE exposes `org.kde.KWin`, sway/Wayland compositors expose `wlr-output-power-management`, and X11 supports `xset dpms force off`. Whichever path is chosen must pair power-off with wake-on-input — a raw DDC/CI power-off does not (the monitor can't be woken by a keypress). Detect and dispatch in `platforms/linux.py`.
 - **Toast on Windows without PowerShell fallback.** The `winrt-Windows.UI.Notifications` package is optional; if missing we subprocess to PowerShell. Make it install-by-default on the `[windows]` extra, or switch to a smaller alternative.
 
 ## Origin

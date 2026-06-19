@@ -1,8 +1,9 @@
-"""Linux backend: gdbus / loginctl / notify-send / systemd-inhibit, all via subprocess.
+"""Linux backend: loginctl / notify-send / systemd-inhibit, all via subprocess.
 
 Zero pip deps. Assumes a freedesktop graphical session for `loginctl`
-and `notify-send`. agent-mode's display blank uses Mutter's
-`DisplayConfig` D-Bus method (GNOME); other DEs warn and continue.
+and `notify-send`. agent-mode is lock-only on Linux: GNOME 50 removed the
+Mutter `DisplayConfig.SetPowerSaveMode` method that used to blank the
+display, so there is no on-demand display-off step (see blank_display).
 """
 
 from __future__ import annotations
@@ -35,16 +36,17 @@ class LinuxBackend(PlatformBackend):
                 return
 
     def blank_display(self) -> bool:
-        # SetPowerSaveMode: 0=on, 1=standby, 2=suspend, 3=off.
-        cmd = [
-            "gdbus", "call", "--session",
-            "--dest", "org.gnome.Mutter.DisplayConfig",
-            "--object-path", "/org/gnome/Mutter/DisplayConfig",
-            "--method", "org.gnome.Mutter.DisplayConfig.SetPowerSaveMode",
-            "3",
-        ]
-        r = subprocess.run(cmd, capture_output=True)
-        return r.returncode == 0
+        # Lock-only on Linux. GNOME 50 removed
+        # org.gnome.Mutter.DisplayConfig.SetPowerSaveMode, the only
+        # on-demand display-off API we had, and nothing replaces it that
+        # also wakes on a keypress: a DDC/CI power-off (ddcutil) does turn
+        # the monitor off, but on real panels it can't be woken by input or
+        # even by DDC — some need a physical power-cycle. So agent-mode
+        # locks the session and keeps the PC awake, but leaves the display
+        # powered. Returning False makes the CLI say "screen locked"
+        # instead of falsely claiming the display went dark. A future
+        # KDE/sway/X11-specific blank could revive this (see README).
+        return False
 
     def notify(self, title: str, body: str) -> None:
         subprocess.run(
@@ -77,6 +79,18 @@ class LinuxBackend(PlatformBackend):
             os.kill(pid, signal.SIGTERM)
         except (ProcessLookupError, PermissionError):
             pass
+
+    def pid_alive(self, pid: int) -> bool:
+        # Signal 0 performs error-checking without sending a signal:
+        # success or PermissionError means the process exists,
+        # ProcessLookupError means it's gone.
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        return True
 
     @contextmanager
     def acquire_single_writer_lock(self, name: str):

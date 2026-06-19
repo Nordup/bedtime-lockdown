@@ -46,6 +46,14 @@ class PlatformBackend(ABC):
         ...
 
     @abstractmethod
+    def pid_alive(self, pid: int) -> bool:
+        """True if a process with this PID currently exists. Used to decide
+        whether a re-run must respawn the idle-suspend inhibitor (its
+        pinned process may have died). Best-effort: returns False if the
+        process is gone or its state can't be determined."""
+        ...
+
+    @abstractmethod
     def acquire_single_writer_lock(self, name: str):
         """Returns a context manager that holds a process-wide exclusive
         lock named `name`, or raises BlockingIOError if another holder

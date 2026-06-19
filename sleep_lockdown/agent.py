@@ -52,10 +52,7 @@ def main() -> int:
 
 def _activate(now: int, win: str) -> int:
     if common.agent_mode_active(now):
-        until = common.read_until_epoch(common.agent_until_path())
-        until_hm = datetime.fromtimestamp(until).strftime("%H:%M")
-        print(f"Agent-mode already active until {until_hm}. Nothing to do.")
-        return 0
+        return _reassert(now, win)
 
     expires = common.window_end_epoch(win, now)
     duration = expires - now
@@ -81,18 +78,77 @@ def _activate(now: int, win: str) -> int:
         f.write(f"{common.now_iso()}\t{win}\n")
 
     backend.lock_session()
-    if not backend.blank_display():
-        print(
-            "warning: could not blank the display. PC will still stay awake.",
-            file=sys.stderr,
-        )
+    blanked = backend.blank_display()
 
     until_hm = datetime.fromtimestamp(expires).strftime("%H:%M")
     print(
         f"Agent-mode active in {win} window until {until_hm}. "
-        "Display off, any key wakes."
+        f"{_screen_state_msg(blanked)}"
     )
     return 0
+
+
+def _screen_state_msg(blanked: bool) -> str:
+    """Tail of the activation message, honest about what actually happened.
+    Where the display was powered off (Windows) say so; where it couldn't
+    be (Linux — GNOME 50 dropped the on-demand blank API, so agent-mode is
+    lock-only) make clear the screen is locked but still lit."""
+    if blanked:
+        return "Display off, any key wakes."
+    return "Screen locked; display stays on, PC stays awake."
+
+
+def _reassert(now: int, win: str) -> int:
+    """Agent-mode is already active but the user ran sleep-agent again —
+    they want the screen locked and blanked again. The display wakes on
+    any key, and there is otherwise no way to put it back until the window
+    ends; re-running is that "off switch".
+
+    Re-apply the visible side effects and revive the idle-suspend
+    inhibitor if its process has died. This never shortens the existing
+    until-epoch: re-enabling only ever strengthens enforcement."""
+    until = common.read_until_epoch(common.agent_until_path())
+    if until is None:
+        # Lost the until-file between the active-check and here (a race or
+        # external tampering). Treat it as no longer active and re-run the
+        # full activation for the current window.
+        return _activate(now, win)
+
+    _revive_inhibitor_if_dead(now, until, win)
+
+    backend.lock_session()
+    blanked = backend.blank_display()
+
+    until_hm = datetime.fromtimestamp(until).strftime("%H:%M")
+    print(
+        f"Agent-mode re-applied; still active until {until_hm}. "
+        f"{_screen_state_msg(blanked)}"
+    )
+    return 0
+
+
+def _revive_inhibitor_if_dead(now: int, until: int, win: str) -> None:
+    """If the pinned idle-suspend inhibitor process is gone, respawn it for
+    the remaining time so the PC keeps staying awake. A live inhibitor is
+    left untouched — spawning a second one would leak a process."""
+    pid_path = common.agent_inhibit_pid_path()
+    try:
+        pid = int(pid_path.read_text().strip())
+    except (ValueError, OSError):
+        pid = None
+
+    if pid is not None and backend.pid_alive(pid):
+        return
+
+    remaining = until - now
+    if remaining <= 0:
+        return
+
+    new_pid = backend.spawn_inhibit_idle_sleep(
+        duration_sec=remaining,
+        reason=f"sleep-agent re-applied in {win} window",
+    )
+    pid_path.write_text(str(new_pid))
 
 
 def _kill_leftover_inhibitor() -> None:
